@@ -5,19 +5,19 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  --bg: #f7f8fa;
-  --card: oklch(1 0 0);
-  --text: #191f28;
-  --text-sub: #8b95a1;
-  --text-muted: #b0b8c1;
-  --border: oklch(0.922 0 0);
-  --blue: #3182f6;
-  --green: #00c473;
-  --orange: #ff8a00;
-  --red: #f04452;
-  --radius: 0.625rem;
-  --shadow: 0 2px 12px rgba(0,0,0,0.04);
-  --shadow-lg: 0 8px 28px rgba(0,0,0,0.08);
+  --app-bg: #f7f8fa;
+  --app-card: #ffffff;
+  --app-text: #191f28;
+  --app-text-sub: #8b95a1;
+  --app-text-muted: #b0b8c1;
+  --app-border: #f2f4f6;
+  --app-blue: #3182f6;
+  --app-green: #00c473;
+  --app-orange: #ff8a00;
+  --app-red: #f04452;
+  --app-radius: 20px;
+  --app-shadow: 0 2px 12px rgba(0,0,0,0.04);
+  --app-shadow-lg: 0 8px 28px rgba(0,0,0,0.08);
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
   --card-foreground: oklch(0.145 0 0);
@@ -53,8 +53,8 @@
 
 body {
   font-family: -apple-system, 'Apple SD Gothic Neo', 'Pretendard', sans-serif;
-  background: var(--bg);
-  color: var(--text);
+  background: var(--app-bg);
+  color: var(--app-text);
   min-height: 100vh;
   -webkit-font-smoothing: antialiased;
 }
