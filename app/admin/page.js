@@ -66,9 +66,12 @@ function StoreCheckTab() {
   const [stores, setStores] = useState([])
   const [checks, setChecks] = useState([])
   const [regionFilter, setRegionFilter] = useState('전체')
+  const [storeSearch, setStoreSearch] = useState('')
   const [newProjectTitle, setNewProjectTitle] = useState('')
   const [loading, setLoading] = useState(true)
   const [showCreateForm, setShowCreateForm] = useState(false)
+  const [editingNote, setEditingNote] = useState(null) // store.id being edited
+  const [noteText, setNoteText] = useState('')
 
   // Fetch projects
   const fetchProjects = useCallback(async () => {
@@ -136,15 +139,37 @@ function StoreCheckTab() {
     const existing = checks.find(c => c.store_id === store.id)
     if (existing) {
       await supabase.from('checks').delete().eq('id', existing.id)
+      setEditingNote(null)
     } else {
       await supabase.from('checks').insert({ store_id: store.id, project_id: selectedProject.id })
     }
     await fetchChecks(selectedProject.id)
   }
 
+  function openNoteEditor(store, e) {
+    e.stopPropagation()
+    const check = checks.find(c => c.store_id === store.id)
+    setEditingNote(store.id)
+    setNoteText(check?.note || '')
+  }
+
+  async function saveNote(store) {
+    const check = checks.find(c => c.store_id === store.id)
+    if (!check) return
+    await supabase.from('checks').update({ note: noteText.trim() || null }).eq('id', check.id)
+    setEditingNote(null)
+    setNoteText('')
+    await fetchChecks(selectedProject.id)
+  }
+
+  const checkMap = new Map(checks.map(c => [c.store_id, c]))
   const checkedStoreIds = new Set(checks.map(c => c.store_id))
   const regions = ['전체', ...Array.from(new Set(stores.map(s => s.region).filter(Boolean))).sort()]
-  const filteredStores = regionFilter === '전체' ? stores : stores.filter(s => s.region === regionFilter)
+  const filteredStores = stores.filter(s => {
+    const matchRegion = regionFilter === '전체' || s.region === regionFilter
+    const matchSearch = !storeSearch.trim() || s.name.includes(storeSearch) || s.code.includes(storeSearch)
+    return matchRegion && matchSearch
+  })
   const checkedCount = filteredStores.filter(s => checkedStoreIds.has(s.id)).length
   const totalCount = filteredStores.length
   const progress = totalCount > 0 ? Math.round((checkedCount / totalCount) * 100) : 0
@@ -247,37 +272,80 @@ function StoreCheckTab() {
             ))}
           </div>
 
+          {/* Store Search */}
+          <Input
+            value={storeSearch}
+            onChange={e => setStoreSearch(e.target.value)}
+            placeholder="매장명 또는 매장코드 검색"
+            className="h-[44px] text-[14px] rounded-2xl bg-card border-border/60 px-5 shadow-sm"
+          />
+
           {/* Store List */}
           <Card className="rounded-2xl border-border/40 shadow-sm overflow-hidden">
             <CardContent className="p-0">
               <div className="max-h-[500px] overflow-y-auto">
                 {filteredStores.map(store => {
                   const isChecked = checkedStoreIds.has(store.id)
+                  const check = checkMap.get(store.id)
+                  const isEditing = editingNote === store.id
                   return (
-                    <div
-                      key={store.id}
-                      className={`flex items-center gap-3 px-4 py-3 border-b border-border/30 cursor-pointer transition-colors ${
-                        isChecked ? 'bg-primary/5' : 'hover:bg-secondary/50'
-                      }`}
-                      onClick={() => toggleCheck(store)}
-                    >
-                      <div className={`shrink-0 w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-colors ${
-                        isChecked ? 'bg-primary border-primary' : 'border-border'
-                      }`}>
+                    <div key={store.id} className={`border-b border-border/30 ${isChecked ? 'bg-primary/5' : ''}`}>
+                      <div
+                        className={`flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors ${
+                          !isChecked ? 'hover:bg-secondary/50' : ''
+                        }`}
+                        onClick={() => toggleCheck(store)}
+                      >
+                        <div className={`shrink-0 w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-colors ${
+                          isChecked ? 'bg-primary border-primary' : 'border-border'
+                        }`}>
+                          {isChecked && (
+                            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                              <path d="M3 7L6 10L11 4" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                            </svg>
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className={`text-[14px] font-medium truncate ${isChecked ? 'text-muted-foreground' : ''}`}>
+                            {store.name}
+                          </p>
+                          {check?.note && !isEditing && (
+                            <p className="text-[12px] text-primary/70 mt-0.5 truncate">{check.note}</p>
+                          )}
+                        </div>
+                        <span className="text-[11px] text-muted-foreground font-mono shrink-0">{store.code}</span>
                         {isChecked && (
-                          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                            <path d="M3 7L6 10L11 4" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                          </svg>
+                          <button
+                            className="text-[11px] font-semibold text-primary/60 hover:text-primary shrink-0 transition-colors"
+                            onClick={(e) => openNoteEditor(store, e)}
+                          >
+                            {check?.note ? '수정' : '비고'}
+                          </button>
                         )}
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <p className={`text-[14px] font-medium truncate ${isChecked ? 'text-muted-foreground' : ''}`}>
-                          {store.name}
-                        </p>
-                      </div>
-                      <span className="text-[11px] text-muted-foreground font-mono shrink-0">{store.code}</span>
-                      {store.region && (
-                        <span className="text-[10px] text-muted-foreground shrink-0">{store.region}</span>
+                      {isEditing && (
+                        <div className="px-4 pb-3 flex gap-2" onClick={e => e.stopPropagation()}>
+                          <Input
+                            value={noteText}
+                            onChange={e => setNoteText(e.target.value)}
+                            placeholder="비고 입력"
+                            className="flex-1 h-9 text-[13px] rounded-lg"
+                            autoFocus
+                            onKeyDown={e => e.key === 'Enter' && saveNote(store)}
+                          />
+                          <button
+                            onClick={() => saveNote(store)}
+                            className="h-9 px-4 rounded-full bg-primary text-white text-[12px] font-bold hover:opacity-90 transition-opacity shrink-0"
+                          >
+                            저장
+                          </button>
+                          <button
+                            onClick={() => setEditingNote(null)}
+                            className="h-9 px-3 rounded-full border border-primary/30 text-primary text-[12px] font-semibold hover:bg-primary/5 transition-colors shrink-0"
+                          >
+                            취소
+                          </button>
+                        </div>
                       )}
                     </div>
                   )
