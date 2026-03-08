@@ -10,18 +10,17 @@
 - **Hosting**: Vercel (https://direct-wiki.vercel.app)
 
 ## 디자인 기준
+- **컨셉**: "UI의 세련됨은 토스, 컬러는 하카" — 상세 규칙은 `DESIGN_RULES.md` 참조
+- **Primary 컬러**: 하카 틸/민트 (`oklch(0.75 0.12 180)` ~ `#4ECDC4`)
+- **배경**: 토스 스타일 연한 회색 (`oklch(0.975 0.005 250)` ~ `#f7f8fa`)
+- **여백**: 토스 스타일로 넉넉하게 (섹션 간 32-40px, 카드 패딩 20-24px)
+- **카드**: rounded-2xl, 미세한 그림자, 얇은 보더
+- **모바일 우선**: max-width 480px (메인), 672px (어드민)
 - **새로운 UI 컴포넌트는 반드시 shadcn/ui 컴포넌트를 사용할 것**
 - shadcn 컴포넌트 추가: `npx shadcn@latest add [component-name]`
 - shadcn 컴포넌트 위치: `components/ui/`
 - 유틸리티: `lib/utils.js` (cn 함수)
-- 스타일링은 Tailwind CSS 클래스 사용 (inline style 지양)
-- 기존 가이드 페이지(/)는 레거시 inline style로 작성됨 - 점진적으로 shadcn/Tailwind로 전환
-
-## 커스텀 CSS 변수 (globals.css)
-기존 가이드 페이지용 변수는 `--app-` prefix 사용 (shadcn 변수와 충돌 방지):
-- `--app-bg`, `--app-card`, `--app-text`, `--app-text-sub`, `--app-text-muted`
-- `--app-border`, `--app-blue`, `--app-green`, `--app-orange`, `--app-red`
-- `--app-radius`, `--app-shadow`, `--app-shadow-lg`
+- 스타일링은 Tailwind CSS 클래스 사용 (inline style 지양, 단 gradient는 예외)
 
 ## 프로젝트 구조
 ```
