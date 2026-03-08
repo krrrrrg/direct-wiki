@@ -17,7 +17,6 @@ export const metadata = {
   openGraph: {
     title: "직영점 대응 위키",
     description: "하카코리아 직영점 대응 위키 - POS 장애대응 가이드",
-    images: [{ url: "/og-image.png", width: 1200, height: 630 }],
     type: "website",
   },
   manifest: "/manifest.json",
