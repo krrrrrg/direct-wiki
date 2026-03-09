@@ -191,10 +191,10 @@ export default function Home() {
   const hasResults = storeResults.length > 0 || staffResults.length > 0 || guideResults.length > 0
   const isSearching = query.trim().length > 0
 
-  // 검색 결과가 있을 때 자동 저장
+  // 검색 시 자동 저장
   useEffect(() => {
-    if (hasResults && query.trim().length >= 2) saveSearch(query)
-  }, [hasResults])
+    if (query.trim().length >= 2 && !dbLoading) saveSearch(query)
+  }, [dbLoading])
 
   // Info section search
   const searchInfo = useCallback(async (q, type) => {
