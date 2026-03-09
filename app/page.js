@@ -183,41 +183,40 @@ export default function Home() {
   }, [infoQuery, infoView, searchInfo])
 
   // 브라우저 뒤로가기/앞으로가기 지원
-  function restoreState(state) {
-    if (!state || state.view === 'main') {
-      setView('main')
-      setSelectedCat(null)
-      setSelectedGuide(null)
-      setQuery('')
-      setInfoView(null)
-    } else if (state.view === 'list') {
-      const cat = GUIDE_DATA.categories.find(c => c.id === state.catId)
-      setSelectedCat(cat)
-      setView('list')
-      setSelectedGuide(null)
-    } else if (state.view === 'detail') {
-      const cat = GUIDE_DATA.categories.find(c => c.id === state.catId)
-      const guide = cat?.guides.find(g => g.id === state.guideId)
-      if (cat && guide) {
-        setSelectedCat(cat)
-        setSelectedGuide(guide)
-        setView('detail')
-      }
-    } else if (state.view === 'info') {
-      setInfoView(state.infoType)
-      setInfoQuery('')
-      setInfoStoreResults([])
-      setInfoStaffResults([])
-      setView('info')
-    }
-  }
-
   useEffect(() => {
-    // 초기 상태 저장
-    window.history.replaceState({ view: 'main' }, '')
+    // 초기 상태 저장 (최초 1회)
+    if (!window.history.state?.view) {
+      window.history.replaceState({ view: 'main' }, '')
+    }
 
     function handlePopState(e) {
-      restoreState(e.state)
+      const state = e.state
+      if (!state || state.view === 'main') {
+        setView('main')
+        setSelectedCat(null)
+        setSelectedGuide(null)
+        setQuery('')
+        setInfoView(null)
+      } else if (state.view === 'list') {
+        const cat = GUIDE_DATA.categories.find(c => c.id === state.catId)
+        setSelectedCat(cat)
+        setView('list')
+        setSelectedGuide(null)
+      } else if (state.view === 'detail') {
+        const cat = GUIDE_DATA.categories.find(c => c.id === state.catId)
+        const guide = cat?.guides.find(g => g.id === state.guideId)
+        if (cat && guide) {
+          setSelectedCat(cat)
+          setSelectedGuide(guide)
+          setView('detail')
+        }
+      } else if (state.view === 'info') {
+        setInfoView(state.infoType)
+        setInfoQuery('')
+        setInfoStoreResults([])
+        setInfoStaffResults([])
+        setView('info')
+      }
     }
     window.addEventListener('popstate', handlePopState)
     return () => window.removeEventListener('popstate', handlePopState)
