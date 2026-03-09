@@ -191,9 +191,12 @@ export default function Home() {
   const hasResults = storeResults.length > 0 || staffResults.length > 0 || guideResults.length > 0
   const isSearching = query.trim().length > 0
 
-  // 검색 시 자동 저장
+  // 검색 시 자동 저장 + 로그 기록
   useEffect(() => {
-    if (query.trim().length >= 2 && !dbLoading) saveSearch(query)
+    if (query.trim().length >= 2 && !dbLoading) {
+      saveSearch(query)
+      supabase.from('search_logs').insert({ query: query.trim(), has_results: hasResults })
+    }
   }, [dbLoading])
 
   // Info section search

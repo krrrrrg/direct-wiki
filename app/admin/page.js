@@ -16,7 +16,7 @@ import {
 } from '@/components/ui/table'
 
 export default function AdminPage() {
-  const [tab, setTab] = useState('check') // 'check' | 'login' | 'views'
+  const [tab, setTab] = useState('check') // 'check' | 'login' | 'views' | 'search'
 
   return (
     <main className="min-h-screen bg-background">
@@ -58,6 +58,16 @@ export default function AdminPage() {
             >
               조회수
             </button>
+            <button
+              className={`text-[14px] font-semibold px-4 py-2.5 border-b-2 transition-colors ${
+                tab === 'search'
+                  ? 'border-primary text-primary'
+                  : 'border-transparent text-muted-foreground hover:text-foreground'
+              }`}
+              onClick={() => setTab('search')}
+            >
+              검색 로그
+            </button>
           </div>
         </div>
       </div>
@@ -66,6 +76,7 @@ export default function AdminPage() {
         {tab === 'check' && <StoreCheckTab />}
         {tab === 'login' && <LoginInfoTab />}
         {tab === 'views' && <GuideViewsTab />}
+        {tab === 'search' && <SearchLogTab />}
       </div>
     </main>
   )
@@ -602,6 +613,130 @@ function GuideViewsTab() {
               )}
             </TableBody>
           </Table>
+        </CardContent>
+      </Card>
+    </div>
+  )
+}
+
+// ==================== 검색 로그 탭 ====================
+function SearchLogTab() {
+  const [logs, setLogs] = useState([])
+  const [topQueries, setTopQueries] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [totalCount, setTotalCount] = useState(0)
+
+  useEffect(() => {
+    async function fetchLogs() {
+      setLoading(true)
+      // 최근 검색 로그 50건
+      const { data } = await supabase
+        .from('search_logs')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(50)
+      setLogs(data || [])
+
+      // 전체 건수
+      const { count } = await supabase
+        .from('search_logs')
+        .select('*', { count: 'exact', head: true })
+      setTotalCount(count || 0)
+
+      // 인기 검색어 (수동 집계)
+      const { data: allLogs } = await supabase
+        .from('search_logs')
+        .select('query')
+      if (allLogs) {
+        const freq = {}
+        for (const l of allLogs) {
+          const q = l.query.toLowerCase()
+          freq[q] = (freq[q] || 0) + 1
+        }
+        const sorted = Object.entries(freq)
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 20)
+          .map(([query, count]) => ({ query, count }))
+        setTopQueries(sorted)
+      }
+      setLoading(false)
+    }
+    fetchLogs()
+  }, [])
+
+  function formatTime(ts) {
+    const d = new Date(ts)
+    const month = d.getMonth() + 1
+    const day = d.getDate()
+    const h = d.getHours().toString().padStart(2, '0')
+    const m = d.getMinutes().toString().padStart(2, '0')
+    return `${month}/${day} ${h}:${m}`
+  }
+
+  if (loading) return <p className="text-[13px] text-muted-foreground text-center py-10">불러오는 중...</p>
+
+  return (
+    <div className="space-y-5">
+      {/* Summary */}
+      <Card className="rounded-2xl border-border/40 shadow-sm">
+        <CardContent className="p-5 flex items-center justify-between">
+          <p className="text-[15px] font-bold">총 검색 수</p>
+          <span className="text-[20px] font-extrabold text-primary">{totalCount.toLocaleString()}</span>
+        </CardContent>
+      </Card>
+
+      {/* Top Queries */}
+      <Card className="rounded-2xl border-border/40 shadow-sm overflow-hidden">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-[15px] font-bold">인기 검색어 TOP 20</CardTitle>
+        </CardHeader>
+        <CardContent className="pt-0">
+          {topQueries.length === 0 ? (
+            <p className="text-[13px] text-muted-foreground text-center py-6">아직 검색 기록이 없습니다</p>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              {topQueries.map((q, i) => (
+                <div key={q.query} className="flex items-center gap-1.5 border border-border/60 rounded-full px-3.5 py-1.5 bg-card">
+                  <span className="text-[12px] font-bold text-primary">{i + 1}</span>
+                  <span className="text-[13px] font-medium">{q.query}</span>
+                  <Badge variant="outline" className="text-[10px] rounded-md font-bold">{q.count}</Badge>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Recent Logs */}
+      <Card className="rounded-2xl border-border/40 shadow-sm overflow-hidden">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-[15px] font-bold">최근 검색 기록</CardTitle>
+        </CardHeader>
+        <CardContent className="p-0">
+          <div className="max-h-[500px] overflow-y-auto">
+            <Table>
+              <TableHeader>
+                <TableRow className="hover:bg-transparent">
+                  <TableHead className="text-[12px] font-bold text-muted-foreground h-11">검색어</TableHead>
+                  <TableHead className="w-[60px] text-[12px] font-bold text-muted-foreground h-11 text-center">결과</TableHead>
+                  <TableHead className="w-[90px] text-[12px] font-bold text-muted-foreground h-11 text-right">시간</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {logs.map(l => (
+                  <TableRow key={l.id} className="h-11">
+                    <TableCell className="font-semibold text-[14px]">{l.query}</TableCell>
+                    <TableCell className="text-center">
+                      <span className={`text-[11px] font-bold ${l.has_results ? 'text-primary' : 'text-muted-foreground'}`}>
+                        {l.has_results ? '있음' : '없음'}
+                      </span>
+                    </TableCell>
+                    <TableCell className="text-right text-[12px] text-muted-foreground font-mono">{formatTime(l.created_at)}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
         </CardContent>
       </Card>
     </div>
