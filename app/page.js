@@ -43,6 +43,13 @@ const CATEGORY_ICONS = {
       <path d="M16 16h5v5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
     </svg>
   ),
+  display: (
+    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" className="text-primary">
+      <rect x="2" y="3" width="20" height="14" rx="2" stroke="currentColor" strokeWidth="1.8"/>
+      <path d="M8 21h8" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+      <path d="M12 17v4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+    </svg>
+  ),
 }
 
 const INFO_ICONS = {
