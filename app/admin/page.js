@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../../lib/supabase'
+import { GUIDE_DATA } from '../../lib/guideData'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -15,7 +16,7 @@ import {
 } from '@/components/ui/table'
 
 export default function AdminPage() {
-  const [tab, setTab] = useState('check') // 'check' | 'login'
+  const [tab, setTab] = useState('check') // 'check' | 'login' | 'views'
 
   return (
     <main className="min-h-screen bg-background">
@@ -47,6 +48,16 @@ export default function AdminPage() {
             >
               로그인 정보
             </button>
+            <button
+              className={`text-[14px] font-semibold px-4 py-2.5 border-b-2 transition-colors ${
+                tab === 'views'
+                  ? 'border-primary text-primary'
+                  : 'border-transparent text-muted-foreground hover:text-foreground'
+              }`}
+              onClick={() => setTab('views')}
+            >
+              조회수
+            </button>
           </div>
         </div>
       </div>
@@ -54,6 +65,7 @@ export default function AdminPage() {
       <div className="max-w-2xl mx-auto px-5 py-6">
         {tab === 'check' && <StoreCheckTab />}
         {tab === 'login' && <LoginInfoTab />}
+        {tab === 'views' && <GuideViewsTab />}
       </div>
     </main>
   )
@@ -504,6 +516,92 @@ function LoginInfoTab() {
               </TableBody>
             </Table>
           </div>
+        </CardContent>
+      </Card>
+    </div>
+  )
+}
+
+// ==================== 조회수 탭 ====================
+function GuideViewsTab() {
+  const [views, setViews] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [totalViews, setTotalViews] = useState(0)
+
+  // guide_id → { title, category } 매핑
+  const guideMap = {}
+  for (const cat of GUIDE_DATA.categories) {
+    for (const g of cat.guides) {
+      guideMap[g.id] = { title: g.title, category: cat.title }
+    }
+  }
+
+  useEffect(() => {
+    async function fetchViews() {
+      setLoading(true)
+      const { data } = await supabase
+        .from('guide_views')
+        .select('guide_id, view_count, updated_at')
+        .order('view_count', { ascending: false })
+      const list = (data || []).map(row => ({
+        ...row,
+        title: guideMap[row.guide_id]?.title || row.guide_id,
+        category: guideMap[row.guide_id]?.category || '-',
+      }))
+      setViews(list)
+      setTotalViews(list.reduce((sum, r) => sum + (r.view_count || 0), 0))
+      setLoading(false)
+    }
+    fetchViews()
+  }, [])
+
+  if (loading) return <p className="text-[13px] text-muted-foreground text-center py-10">불러오는 중...</p>
+
+  return (
+    <div className="space-y-5">
+      {/* Summary */}
+      <Card className="rounded-2xl border-border/40 shadow-sm">
+        <CardContent className="p-5 flex items-center justify-between">
+          <p className="text-[15px] font-bold">전체 조회수</p>
+          <span className="text-[20px] font-extrabold text-primary">{totalViews.toLocaleString()}</span>
+        </CardContent>
+      </Card>
+
+      {/* Ranking */}
+      <Card className="rounded-2xl border-border/40 shadow-sm overflow-hidden">
+        <CardContent className="p-0">
+          <Table>
+            <TableHeader>
+              <TableRow className="hover:bg-transparent">
+                <TableHead className="w-[40px] text-[12px] font-bold text-muted-foreground h-11 text-center">#</TableHead>
+                <TableHead className="text-[12px] font-bold text-muted-foreground h-11">가이드</TableHead>
+                <TableHead className="w-[90px] text-[12px] font-bold text-muted-foreground h-11">카테고리</TableHead>
+                <TableHead className="w-[70px] text-[12px] font-bold text-muted-foreground h-11 text-right">조회수</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {views.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={4} className="text-center text-[13px] text-muted-foreground py-10">
+                    아직 조회 기록이 없습니다
+                  </TableCell>
+                </TableRow>
+              ) : (
+                views.map((v, i) => (
+                  <TableRow key={v.guide_id} className="h-12">
+                    <TableCell className="text-center text-[13px] font-bold text-muted-foreground">
+                      {i + 1}
+                    </TableCell>
+                    <TableCell className="font-semibold text-[14px]">{v.title}</TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className="text-[11px] rounded-md font-medium">{v.category}</Badge>
+                    </TableCell>
+                    <TableCell className="text-right text-[14px] font-bold text-primary">{v.view_count.toLocaleString()}</TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
         </CardContent>
       </Card>
     </div>
