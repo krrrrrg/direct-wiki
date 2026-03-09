@@ -51,7 +51,6 @@ export default function Home() {
   const [selectedCat, setSelectedCat] = useState(null)
   const [selectedGuide, setSelectedGuide] = useState(null)
   const [query, setQuery] = useState('')
-  const [navStack, setNavStack] = useState([])
   const [staffResults, setStaffResults] = useState([])
   const [storeResults, setStoreResults] = useState([])
   const [dbLoading, setDbLoading] = useState(false)
@@ -169,8 +168,49 @@ export default function Home() {
     return () => clearTimeout(timer)
   }, [infoQuery, infoView, searchInfo])
 
+  // 브라우저 뒤로가기/앞으로가기 지원
+  function restoreState(state) {
+    if (!state || state.view === 'main') {
+      setView('main')
+      setSelectedCat(null)
+      setSelectedGuide(null)
+      setQuery('')
+      setInfoView(null)
+    } else if (state.view === 'list') {
+      const cat = GUIDE_DATA.categories.find(c => c.id === state.catId)
+      setSelectedCat(cat)
+      setView('list')
+      setSelectedGuide(null)
+    } else if (state.view === 'detail') {
+      const cat = GUIDE_DATA.categories.find(c => c.id === state.catId)
+      const guide = cat?.guides.find(g => g.id === state.guideId)
+      if (cat && guide) {
+        setSelectedCat(cat)
+        setSelectedGuide(guide)
+        setView('detail')
+      }
+    } else if (state.view === 'info') {
+      setInfoView(state.infoType)
+      setInfoQuery('')
+      setInfoStoreResults([])
+      setInfoStaffResults([])
+      setView('info')
+    }
+  }
+
+  useEffect(() => {
+    // 초기 상태 저장
+    window.history.replaceState({ view: 'main' }, '')
+
+    function handlePopState(e) {
+      restoreState(e.state)
+    }
+    window.addEventListener('popstate', handlePopState)
+    return () => window.removeEventListener('popstate', handlePopState)
+  }, [])
+
   function openInfoView(type) {
-    setNavStack(prev => [...prev, { view, catId: selectedCat?.id }])
+    window.history.pushState({ view: 'info', infoType: type }, '')
     setInfoView(type)
     setInfoQuery('')
     setInfoStoreResults([])
@@ -179,13 +219,13 @@ export default function Home() {
   }
 
   function showList(cat) {
-    setNavStack(prev => [...prev, { view, catId: selectedCat?.id }])
+    window.history.pushState({ view: 'list', catId: cat.id }, '')
     setSelectedCat(cat)
     setView('list')
   }
 
   function showDetail(cat, guide) {
-    setNavStack(prev => [...prev, { view, catId: selectedCat?.id }])
+    window.history.pushState({ view: 'detail', catId: cat.id, guideId: guide.id }, '')
     setSelectedCat(cat)
     setSelectedGuide(guide)
     setView('detail')
@@ -194,21 +234,7 @@ export default function Home() {
   }
 
   function goBack() {
-    const prev = navStack[navStack.length - 1]
-    if (!prev) return
-    setNavStack(navStack.slice(0, -1))
-    if (prev.view === 'main') {
-      setView('main')
-      setSelectedCat(null)
-      setSelectedGuide(null)
-      setQuery('')
-      setInfoView(null)
-    } else if (prev.view === 'list') {
-      const cat = GUIDE_DATA.categories.find(c => c.id === prev.catId)
-      setSelectedCat(cat)
-      setView('list')
-      setSelectedGuide(null)
-    }
+    window.history.back()
   }
 
   const headerTitle = view === 'detail' ? selectedGuide?.title : view === 'list' ? selectedCat?.title : view === 'info' ? (infoView === 'store' ? 'POS 매장 정보' : 'POS 직원 정보') : '직영점 대응 위키'
