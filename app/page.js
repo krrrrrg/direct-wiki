@@ -60,10 +60,55 @@ export default function Home() {
   const [infoStoreResults, setInfoStoreResults] = useState([])
   const [infoStaffResults, setInfoStaffResults] = useState([])
   const [infoLoading, setInfoLoading] = useState(false)
+  const [storeNotes, setStoreNotes] = useState({})
+  const [guideViews, setGuideViews] = useState({})
+
+  // Fetch all guide view counts
+  const fetchGuideViews = useCallback(async () => {
+    const { data } = await supabase.from('guide_views').select('guide_id, view_count')
+    if (data) {
+      const map = {}
+      for (const row of data) map[row.guide_id] = row.view_count
+      setGuideViews(map)
+    }
+  }, [])
+
+  // Increment guide view count
+  async function incrementView(guideId) {
+    await supabase.rpc('increment_guide_view', { p_guide_id: guideId })
+    setGuideViews(prev => ({ ...prev, [guideId]: (prev[guideId] || 0) + 1 }))
+  }
+
+  useEffect(() => { fetchGuideViews() }, [fetchGuideViews])
+
+  // Fetch latest notes for given store IDs
+  const fetchStoreNotes = useCallback(async (storeIds) => {
+    if (!storeIds.length) { setStoreNotes({}); return }
+    const { data: checksData } = await supabase
+      .from('checks')
+      .select('store_id, note, project_id')
+      .in('store_id', storeIds)
+      .not('note', 'is', null)
+      .order('checked_at', { ascending: false })
+    if (!checksData?.length) { setStoreNotes({}); return }
+    const projIds = [...new Set(checksData.map(c => c.project_id))]
+    const { data: projData } = await supabase
+      .from('projects')
+      .select('id, title')
+      .in('id', projIds)
+    const projMap = new Map((projData || []).map(p => [p.id, p.title]))
+    const notes = {}
+    for (const c of checksData) {
+      if (!notes[c.store_id]) {
+        notes[c.store_id] = { note: c.note, project: projMap.get(c.project_id) || '' }
+      }
+    }
+    setStoreNotes(notes)
+  }, [])
 
   // DB search (stores + staff)
   const searchDB = useCallback(async (q) => {
-    if (!q.trim()) { setStaffResults([]); setStoreResults([]); return }
+    if (!q.trim()) { setStaffResults([]); setStoreResults([]); setStoreNotes({}); return }
     setDbLoading(true)
     const t = q.trim()
     const [staffRes, storeRes] = await Promise.all([
@@ -76,8 +121,9 @@ export default function Home() {
     ])
     setStaffResults(staffRes.data || [])
     setStoreResults(storeRes.data || [])
+    await fetchStoreNotes((storeRes.data || []).map(s => s.id))
     setDbLoading(false)
-  }, [])
+  }, [fetchStoreNotes])
 
   useEffect(() => {
     const timer = setTimeout(() => searchDB(query), 300)
@@ -107,6 +153,7 @@ export default function Home() {
         .or(`name.ilike.%${t}%,code.ilike.%${t}%`)
         .order('region').limit(30)
       setInfoStoreResults(data || [])
+      await fetchStoreNotes((data || []).map(s => s.id))
     } else {
       const { data } = await supabase.from('login_info').select('*')
         .or(`name.ilike.%${t}%,employee_id.ilike.%${t}%`)
@@ -114,7 +161,7 @@ export default function Home() {
       setInfoStaffResults(data || [])
     }
     setInfoLoading(false)
-  }, [])
+  }, [fetchStoreNotes])
 
   useEffect(() => {
     if (!infoView) return
@@ -143,6 +190,7 @@ export default function Home() {
     setSelectedGuide(guide)
     setView('detail')
     window.scrollTo({ top: 0 })
+    incrementView(guide.id)
   }
 
   function goBack() {
@@ -248,6 +296,11 @@ export default function Home() {
                                     <span className="text-[13px] text-primary font-bold font-mono">{s.code}</span>
                                     {s.region && <Badge variant="outline" className="text-[10px] rounded-md font-medium">{s.region}</Badge>}
                                   </div>
+                                  {storeNotes[s.id] && (
+                                    <p className="text-[12px] text-primary/70 mt-1 truncate">
+                                      {storeNotes[s.id].project && <span className="font-semibold">[{storeNotes[s.id].project}]</span>} {storeNotes[s.id].note}
+                                    </p>
+                                  )}
                                 </div>
                               </CardContent>
                             </Card>
@@ -290,7 +343,7 @@ export default function Home() {
                         <p className="text-[12px] font-bold text-muted-foreground mb-2.5">가이드 {guideResults.length}건</p>
                         <div className="space-y-2.5">
                           {guideResults.map((r, i) => (
-                            <GuideItem key={i} cat={r.cat} guide={r.guide} onClick={() => showDetail(r.cat, r.guide)} />
+                            <GuideItem key={i} cat={r.cat} guide={r.guide} onClick={() => showDetail(r.cat, r.guide)} viewCount={guideViews[r.guide.id] || 0} />
                           ))}
                         </div>
                       </div>
@@ -395,6 +448,11 @@ export default function Home() {
                                 <span className="text-[15px] text-primary font-bold font-mono">{s.code}</span>
                                 {s.region && <Badge variant="outline" className="text-[10px] rounded-md font-medium">{s.region}</Badge>}
                               </div>
+                              {storeNotes[s.id] && (
+                                <p className="text-[12px] text-primary/70 mt-1 truncate">
+                                  {storeNotes[s.id].project && <span className="font-semibold">[{storeNotes[s.id].project}]</span>} {storeNotes[s.id].note}
+                                </p>
+                              )}
                             </div>
                           </CardContent>
                         </Card>
@@ -446,7 +504,7 @@ export default function Home() {
             )}
             <div className="space-y-2.5">
               {selectedCat.guides.map(g => (
-                <GuideItem key={g.id} cat={selectedCat} guide={g} onClick={() => showDetail(selectedCat, g)} />
+                <GuideItem key={g.id} cat={selectedCat} guide={g} onClick={() => showDetail(selectedCat, g)} viewCount={guideViews[g.id] || 0} />
               ))}
             </div>
           </div>
@@ -515,7 +573,7 @@ export default function Home() {
   )
 }
 
-function GuideItem({ cat, guide, onClick }) {
+function GuideItem({ cat, guide, onClick, viewCount }) {
   return (
     <Card
       className="cursor-pointer border-border/40 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-150 rounded-2xl"
@@ -526,7 +584,18 @@ function GuideItem({ cat, guide, onClick }) {
           {CATEGORY_ICONS[cat.id] || cat.icon}
         </div>
         <div className="flex-1 min-w-0">
-          <p className="font-bold text-[14px] mb-0.5 tracking-tight">{guide.title}</p>
+          <div className="flex items-center gap-2 mb-0.5">
+            <p className="font-bold text-[14px] tracking-tight truncate">{guide.title}</p>
+            {viewCount > 0 && (
+              <span className="shrink-0 flex items-center gap-0.5 text-[11px] text-muted-foreground">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" className="text-muted-foreground/60">
+                  <path d="M1 12C1 12 5 4 12 4C19 4 23 12 23 12C23 12 19 20 12 20C5 20 1 12 1 12Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="2"/>
+                </svg>
+                {viewCount}
+              </span>
+            )}
+          </div>
           <p className="text-[12px] text-muted-foreground truncate">{guide.symptom}</p>
           {guide.shortcut && (
             <span className="inline-block mt-1.5 border border-primary/30 text-primary text-[11px] font-bold rounded-full px-2.5 py-0.5">
