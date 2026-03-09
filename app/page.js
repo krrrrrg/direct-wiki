@@ -72,6 +72,7 @@ export default function Home() {
   const [selectedCat, setSelectedCat] = useState(null)
   const [selectedGuide, setSelectedGuide] = useState(null)
   const [query, setQuery] = useState('')
+  const [recentSearches, setRecentSearches] = useState([])
   const [staffResults, setStaffResults] = useState([])
   const [storeResults, setStoreResults] = useState([])
   const [dbLoading, setDbLoading] = useState(false)
@@ -100,6 +101,33 @@ export default function Home() {
   }
 
   useEffect(() => { fetchGuideViews() }, [fetchGuideViews])
+
+  // 최근 검색어 로드
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem('recentSearches') || '[]')
+      setRecentSearches(saved)
+    } catch { setRecentSearches([]) }
+  }, [])
+
+  function saveSearch(q) {
+    const term = q.trim()
+    if (!term) return
+    const updated = [term, ...recentSearches.filter(s => s !== term)].slice(0, 10)
+    setRecentSearches(updated)
+    localStorage.setItem('recentSearches', JSON.stringify(updated))
+  }
+
+  function removeSearch(term) {
+    const updated = recentSearches.filter(s => s !== term)
+    setRecentSearches(updated)
+    localStorage.setItem('recentSearches', JSON.stringify(updated))
+  }
+
+  function clearAllSearches() {
+    setRecentSearches([])
+    localStorage.removeItem('recentSearches')
+  }
 
   // Fetch latest notes for given store IDs
   const fetchStoreNotes = useCallback(async (storeIds) => {
@@ -162,6 +190,11 @@ export default function Home() {
 
   const hasResults = storeResults.length > 0 || staffResults.length > 0 || guideResults.length > 0
   const isSearching = query.trim().length > 0
+
+  // 검색 결과가 있을 때 자동 저장
+  useEffect(() => {
+    if (hasResults && query.trim().length >= 2) saveSearch(query)
+  }, [hasResults])
 
   // Info section search
   const searchInfo = useCallback(async (q, type) => {
@@ -312,6 +345,39 @@ export default function Home() {
                 className="h-[52px] text-[15px] rounded-2xl bg-card border-border/60 px-5 shadow-sm"
               />
             </div>
+
+            {/* Recent Searches */}
+            {!isSearching && recentSearches.length > 0 && (
+              <div className="pb-4">
+                <div className="flex items-center justify-between mb-2.5">
+                  <p className="text-[13px] font-bold text-muted-foreground">최근 검색</p>
+                  <button
+                    className="text-[12px] text-muted-foreground hover:text-foreground transition-colors"
+                    onClick={clearAllSearches}
+                  >
+                    전체 삭제
+                  </button>
+                </div>
+                <div className="flex gap-2 flex-wrap">
+                  {recentSearches.map(term => (
+                    <div key={term} className="flex items-center gap-1 border border-border/60 rounded-full pl-3.5 pr-1.5 py-1.5 bg-card">
+                      <button
+                        className="text-[13px] text-foreground"
+                        onClick={() => setQuery(term)}
+                      >
+                        {term}
+                      </button>
+                      <button
+                        className="text-muted-foreground hover:text-foreground text-[11px] w-5 h-5 flex items-center justify-center transition-colors"
+                        onClick={() => removeSearch(term)}
+                      >
+                        &times;
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Search Results */}
             {isSearching && (
