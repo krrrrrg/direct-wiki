@@ -35,6 +35,14 @@ const CATEGORY_ICONS = {
       <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="1.8"/>
     </svg>
   ),
+  update: (
+    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" className="text-primary">
+      <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+      <path d="M3 3v5h5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+      <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+      <path d="M16 16h5v5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  ),
 }
 
 const INFO_ICONS = {
