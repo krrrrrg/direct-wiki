@@ -236,12 +236,14 @@ export default function Home() {
     setInfoStoreResults([])
     setInfoStaffResults([])
     setView('info')
+    window.scrollTo({ top: 0 })
   }
 
   function showList(cat) {
     window.history.pushState({ view: 'list', catId: cat.id }, '')
     setSelectedCat(cat)
     setView('list')
+    window.scrollTo({ top: 0 })
   }
 
   function showDetail(cat, guide) {
