@@ -167,10 +167,25 @@ export default function Home() {
         .or(`name.ilike.%${t}%,code.ilike.%${t}%`)
         .order('region').limit(20),
     ])
-    setStaffResults(staffRes.data || [])
-    setStoreResults(storeRes.data || [])
-    await fetchStoreNotes((storeRes.data || []).map(s => s.id))
+    const staff = staffRes.data || []
+    const stores = storeRes.data || []
+    setStaffResults(staff)
+    setStoreResults(stores)
+    await fetchStoreNotes(stores.map(s => s.id))
     setDbLoading(false)
+
+    // 검색 로그 저장 (2글자 이상)
+    if (t.length >= 2) {
+      const guideHits = GUIDE_DATA.categories.some(cat =>
+        cat.guides.some(g => {
+          const text = [g.title, g.symptom, g.shortcut || '', ...(g.keywords || []), ...g.steps.map(s => s.action + ' ' + s.detail)].join(' ').toLowerCase()
+          return text.includes(t.toLowerCase())
+        })
+      )
+      const hasResults = staff.length > 0 || stores.length > 0 || guideHits
+      saveSearch(t)
+      supabase.from('search_logs').insert({ query: t, has_results: hasResults }).then()
+    }
   }, [fetchStoreNotes])
 
   useEffect(() => {
@@ -191,13 +206,6 @@ export default function Home() {
   const hasResults = storeResults.length > 0 || staffResults.length > 0 || guideResults.length > 0
   const isSearching = query.trim().length > 0
 
-  // 검색 시 자동 저장 + 로그 기록
-  useEffect(() => {
-    if (query.trim().length >= 2 && !dbLoading) {
-      saveSearch(query)
-      supabase.from('search_logs').insert({ query: query.trim(), has_results: hasResults })
-    }
-  }, [dbLoading])
 
   // Info section search
   const searchInfo = useCallback(async (q, type) => {
