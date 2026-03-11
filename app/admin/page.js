@@ -16,7 +16,7 @@ import {
 } from '@/components/ui/table'
 
 export default function AdminPage() {
-  const [tab, setTab] = useState('check') // 'check' | 'login' | 'views' | 'search'
+  const [tab, setTab] = useState('check') // 'check' | 'login' | 'views' | 'search' | 'notice'
 
   return (
     <main className="min-h-screen bg-background">
@@ -27,9 +27,9 @@ export default function AdminPage() {
             <img src="/images/logo.png" alt="HAKA" className="shrink-0 w-6 h-6" />
             <h1 className="text-[17px] font-bold tracking-tight">관리자</h1>
           </div>
-          <div className="flex gap-1 -mb-px">
+          <div className="flex gap-1 -mb-px overflow-x-auto">
             <button
-              className={`text-[14px] font-semibold px-4 py-2.5 border-b-2 transition-colors ${
+              className={`text-[14px] font-semibold px-4 py-2.5 border-b-2 transition-colors shrink-0 ${
                 tab === 'check'
                   ? 'border-primary text-primary'
                   : 'border-transparent text-muted-foreground hover:text-foreground'
@@ -39,7 +39,7 @@ export default function AdminPage() {
               매장 체크
             </button>
             <button
-              className={`text-[14px] font-semibold px-4 py-2.5 border-b-2 transition-colors ${
+              className={`text-[14px] font-semibold px-4 py-2.5 border-b-2 transition-colors shrink-0 ${
                 tab === 'login'
                   ? 'border-primary text-primary'
                   : 'border-transparent text-muted-foreground hover:text-foreground'
@@ -49,7 +49,7 @@ export default function AdminPage() {
               로그인 정보
             </button>
             <button
-              className={`text-[14px] font-semibold px-4 py-2.5 border-b-2 transition-colors ${
+              className={`text-[14px] font-semibold px-4 py-2.5 border-b-2 transition-colors shrink-0 ${
                 tab === 'views'
                   ? 'border-primary text-primary'
                   : 'border-transparent text-muted-foreground hover:text-foreground'
@@ -59,7 +59,7 @@ export default function AdminPage() {
               조회수
             </button>
             <button
-              className={`text-[14px] font-semibold px-4 py-2.5 border-b-2 transition-colors ${
+              className={`text-[14px] font-semibold px-4 py-2.5 border-b-2 transition-colors shrink-0 ${
                 tab === 'search'
                   ? 'border-primary text-primary'
                   : 'border-transparent text-muted-foreground hover:text-foreground'
@@ -67,6 +67,16 @@ export default function AdminPage() {
               onClick={() => setTab('search')}
             >
               검색 로그
+            </button>
+            <button
+              className={`text-[14px] font-semibold px-4 py-2.5 border-b-2 transition-colors shrink-0 ${
+                tab === 'notice'
+                  ? 'border-primary text-primary'
+                  : 'border-transparent text-muted-foreground hover:text-foreground'
+              }`}
+              onClick={() => setTab('notice')}
+            >
+              공지사항
             </button>
           </div>
         </div>
@@ -77,8 +87,218 @@ export default function AdminPage() {
         {tab === 'login' && <LoginInfoTab />}
         {tab === 'views' && <GuideViewsTab />}
         {tab === 'search' && <SearchLogTab />}
+        {tab === 'notice' && <NoticeManageTab />}
       </div>
     </main>
+  )
+}
+
+// ==================== 공지사항 관리 탭 ====================
+function NoticeManageTab() {
+  const [notices, setNotices] = useState([])
+  const [title, setTitle] = useState('')
+  const [guideId, setGuideId] = useState('')
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+
+  // 모든 가이드 목록 (카테고리 > 가이드) 평탄화
+  const allGuides = GUIDE_DATA.categories.flatMap(cat =>
+    cat.guides.map(g => ({
+      id: g.id,
+      title: g.title,
+      category: cat.title,
+    }))
+  )
+
+  const fetchNotices = useCallback(async () => {
+    setLoading(true)
+    const { data } = await supabase
+      .from('notices')
+      .select('*')
+      .order('created_at', { ascending: false })
+    setNotices(data || [])
+    setLoading(false)
+  }, [])
+
+  useEffect(() => {
+    fetchNotices()
+  }, [fetchNotices])
+
+  async function saveNotice() {
+    if (!title.trim()) return
+    setSaving(true)
+
+    // 기존 활성 공지를 모두 비활성화
+    await supabase
+      .from('notices')
+      .update({ is_active: false })
+      .eq('is_active', true)
+
+    // 새 공지 삽입
+    await supabase.from('notices').insert({
+      title: title.trim(),
+      guide_id: guideId || null,
+      is_active: true,
+    })
+
+    setTitle('')
+    setGuideId('')
+    setSaving(false)
+    fetchNotices()
+  }
+
+  async function deactivateNotice(id) {
+    if (!confirm('이 공지를 비활성화할까요?')) return
+    await supabase.from('notices').update({ is_active: false }).eq('id', id)
+    fetchNotices()
+  }
+
+  // 가이드 id → 제목 매핑
+  const guideMap = {}
+  for (const g of allGuides) {
+    guideMap[g.id] = g
+  }
+
+  function formatTime(ts) {
+    const d = new Date(ts)
+    const month = d.getMonth() + 1
+    const day = d.getDate()
+    const h = d.getHours().toString().padStart(2, '0')
+    const m = d.getMinutes().toString().padStart(2, '0')
+    return `${month}/${day} ${h}:${m}`
+  }
+
+  const activeNotices = notices.filter(n => n.is_active)
+  const inactiveNotices = notices.filter(n => !n.is_active)
+
+  if (loading) return <p className="text-[13px] text-muted-foreground text-center py-10">불러오는 중...</p>
+
+  return (
+    <div className="space-y-5">
+      {/* 새 공지 등록 */}
+      <Card className="rounded-2xl border-border/40 shadow-sm">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-[15px] font-bold">새 공지사항 등록</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <Input
+            value={title}
+            onChange={e => setTitle(e.target.value)}
+            placeholder="공지 제목을 입력하세요"
+            className="h-11 text-[14px] rounded-xl"
+            onKeyDown={e => e.key === 'Enter' && saveNotice()}
+          />
+          <select
+            value={guideId}
+            onChange={e => setGuideId(e.target.value)}
+            className="w-full h-11 text-[14px] rounded-xl border border-input bg-background px-3 focus:outline-none focus:ring-2 focus:ring-ring"
+          >
+            <option value="">연결할 가이드 선택 (선택사항)</option>
+            {GUIDE_DATA.categories.map(cat => (
+              <optgroup key={cat.id} label={cat.title}>
+                {cat.guides.map(g => (
+                  <option key={g.id} value={g.id}>
+                    {g.title}
+                  </option>
+                ))}
+              </optgroup>
+            ))}
+          </select>
+          <div className="flex justify-end">
+            <button
+              onClick={saveNotice}
+              disabled={saving || !title.trim()}
+              className="h-11 px-6 rounded-full bg-primary text-white font-bold text-[14px] hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {saving ? '저장 중...' : '공지 등록'}
+            </button>
+          </div>
+          <p className="text-[12px] text-muted-foreground">
+            새 공지를 등록하면 기존 활성 공지는 자동으로 비활성화됩니다.
+          </p>
+        </CardContent>
+      </Card>
+
+      {/* 현재 활성 공지 */}
+      <Card className="rounded-2xl border-border/40 shadow-sm">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-[15px] font-bold flex items-center gap-2">
+            현재 활성 공지
+            <Badge className="text-[11px] rounded-md font-bold bg-primary/10 text-primary border-primary/30" variant="outline">
+              {activeNotices.length}건
+            </Badge>
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {activeNotices.length === 0 ? (
+            <p className="text-[13px] text-muted-foreground text-center py-6">활성화된 공지가 없습니다</p>
+          ) : (
+            <div className="space-y-3">
+              {activeNotices.map(n => (
+                <div key={n.id} className="flex items-start gap-3 p-4 rounded-xl bg-primary/5 border border-primary/20">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[14px] font-semibold">{n.title}</p>
+                    {n.guide_id && guideMap[n.guide_id] && (
+                      <p className="text-[12px] text-primary/70 mt-1">
+                        연결: {guideMap[n.guide_id].category} &gt; {guideMap[n.guide_id].title}
+                      </p>
+                    )}
+                    <p className="text-[11px] text-muted-foreground mt-1">{formatTime(n.created_at)}</p>
+                  </div>
+                  <button
+                    onClick={() => deactivateNotice(n.id)}
+                    className="text-[12px] font-semibold border border-primary/30 text-primary rounded-full px-3 py-1 hover:bg-primary/5 transition-colors shrink-0"
+                  >
+                    비활성화
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* 지난 공지 목록 */}
+      {inactiveNotices.length > 0 && (
+        <Card className="rounded-2xl border-border/40 shadow-sm overflow-hidden">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-[15px] font-bold">지난 공지</CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            <div className="max-h-[400px] overflow-y-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow className="hover:bg-transparent">
+                    <TableHead className="text-[12px] font-bold text-muted-foreground h-11">제목</TableHead>
+                    <TableHead className="w-[120px] text-[12px] font-bold text-muted-foreground h-11">연결 가이드</TableHead>
+                    <TableHead className="w-[90px] text-[12px] font-bold text-muted-foreground h-11 text-right">등록일</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {inactiveNotices.map(n => (
+                    <TableRow key={n.id} className="h-11">
+                      <TableCell className="text-[13px] text-muted-foreground">{n.title}</TableCell>
+                      <TableCell>
+                        {n.guide_id && guideMap[n.guide_id] ? (
+                          <Badge variant="outline" className="text-[11px] rounded-md font-medium">
+                            {guideMap[n.guide_id].title}
+                          </Badge>
+                        ) : (
+                          <span className="text-[11px] text-muted-foreground">-</span>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-right text-[12px] text-muted-foreground font-mono">
+                        {formatTime(n.created_at)}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+    </div>
   )
 }
 

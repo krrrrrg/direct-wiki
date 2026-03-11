@@ -17,6 +17,22 @@ export default function Home() {
   const [dbLoading, setDbLoading] = useState(false)
   const [storeNotes, setStoreNotes] = useState({})
   const [guideViews, setGuideViews] = useState({})
+  const [notice, setNotice] = useState(null)
+
+  // Fetch active notice
+  useEffect(() => {
+    async function fetchNotice() {
+      const { data } = await supabase
+        .from('notices')
+        .select('id, title, guide_id')
+        .eq('is_active', true)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single()
+      if (data) setNotice(data)
+    }
+    fetchNotice()
+  }, [])
 
   // Fetch all guide view counts
   const fetchGuideViews = useCallback(async () => {
@@ -156,6 +172,26 @@ export default function Home() {
 
         {/* Unified Search */}
         <div className="pb-6">
+          {/* Notice Banner */}
+          {notice && (
+            <Link href={`/guide/${notice.guide_id}`}>
+              <div className="flex items-center gap-3 bg-teal-500 hover:bg-teal-600 transition-colors rounded-2xl px-4 py-3.5 mb-4 cursor-pointer shadow-sm">
+                <div className="shrink-0 w-8 h-8 rounded-xl bg-white/20 flex items-center justify-center">
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                    <path d="M2 8L2 4C2 3.44772 2.44772 3 3 3H4L4 11H3C2.44772 11 2 10.5523 2 10V8Z" fill="white"/>
+                    <path d="M4 3L12 1V13L4 11V3Z" fill="white" fillOpacity="0.9"/>
+                    <path d="M5 11.5V14C5 14.5523 5.44772 15 6 15H6.5C6.89782 15 7.25436 14.7526 7.39443 14.3827L8.5 11.5" stroke="white" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>
+                    <circle cx="13.5" cy="5.5" r="0.5" fill="white"/>
+                    <circle cx="13.5" cy="7.5" r="0.5" fill="white"/>
+                  </svg>
+                </div>
+                <p className="flex-1 text-[14px] font-bold text-white truncate">{notice.title}</p>
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="shrink-0">
+                  <path d="M6 3L11 8L6 13" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              </div>
+            </Link>
+          )}
           <p className="text-[16px] font-bold text-foreground mb-3">증상, 매장명, 이름으로 검색하세요</p>
           <Input
             type="text"
