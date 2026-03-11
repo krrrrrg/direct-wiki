@@ -173,6 +173,7 @@ export default function Home() {
         {/* Unified Search */}
         <div className="pb-6">
           {/* Notice Banner */}
+          {notice && <p className="text-[16px] font-bold text-foreground mb-3">공지사항</p>}
           {notice && (
             <Link href={`/guide/${notice.guide_id}`}>
               <div className="flex items-center gap-3 bg-teal-500 hover:bg-teal-600 transition-colors rounded-2xl px-4 py-3.5 mb-4 cursor-pointer shadow-sm">
