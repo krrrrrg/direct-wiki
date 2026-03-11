@@ -71,10 +71,12 @@ export default function GuidePage({ params }) {
           </div>
 
           {guide.note && (
-            <div className="mt-6 mb-8 rounded-2xl bg-primary/8 border border-primary/20 px-5 py-4 text-center">
-              <p className="text-[13px] font-semibold text-foreground/70 leading-relaxed whitespace-pre-line">
-                {guide.note}
-              </p>
+            <div className="mt-5 pl-14">
+              <div className="rounded-2xl bg-primary/8 border border-primary/20 px-5 py-4 text-center">
+                <p className="text-[13px] font-semibold text-foreground/70 leading-relaxed whitespace-pre-line">
+                  {guide.note}
+                </p>
+              </div>
             </div>
           )}
         </div>
