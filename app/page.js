@@ -327,30 +327,9 @@ export default function Home() {
         {/* Default Content (no search) */}
         {!isSearching && (
           <>
-            {/* Categories */}
-            <p className="text-[16px] font-bold text-foreground mb-4">어떤 문제인가요?</p>
-            <div className="grid grid-cols-2 gap-3 mb-8">
-              {GUIDE_DATA.categories.map(cat => (
-                <Link key={cat.id} href={`/category/${cat.id}`}>
-                  <Card className="cursor-pointer border-border/40 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-150 rounded-2xl h-full">
-                    <CardContent className="pt-6 pb-5 px-4 text-center">
-                      <div className="w-14 h-14 mx-auto mb-3 rounded-2xl flex items-center justify-center bg-primary/10 shadow-sm">
-                        {CATEGORY_ICONS[cat.id] || cat.icon}
-                      </div>
-                      <p className="font-bold text-[14px] mb-1 tracking-tight">{cat.title}</p>
-                      <p className="text-[12px] text-muted-foreground leading-relaxed">{cat.desc}</p>
-                      <span className="inline-block mt-2.5 border border-primary/30 text-primary text-[11px] font-semibold rounded-full px-3 py-0.5">
-                        {cat.guides.length}개 가이드
-                      </span>
-                    </CardContent>
-                  </Card>
-                </Link>
-              ))}
-            </div>
-
             {/* POS Info Sections */}
             <p className="text-[16px] font-bold text-foreground mb-4">POS 정보 조회</p>
-            <div className="grid grid-cols-2 gap-3 mb-6">
+            <div className="grid grid-cols-2 gap-3 mb-8">
               <Link href="/info/store">
                 <Card className="cursor-pointer border-border/40 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-150 rounded-2xl">
                   <CardContent className="pt-6 pb-5 px-4 text-center">
@@ -373,6 +352,72 @@ export default function Home() {
                   </CardContent>
                 </Card>
               </Link>
+            </div>
+
+            {/* Cash Collection */}
+            <p className="text-[16px] font-bold text-foreground mb-4">업무</p>
+            <div className="space-y-3 mb-8">
+              <Link href="/cash-collection">
+                <Card className="cursor-pointer border-border/40 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-150 rounded-2xl">
+                  <CardContent className="p-4 flex items-center gap-4">
+                    <div className="shrink-0 w-14 h-14 rounded-2xl flex items-center justify-center bg-amber-500/10 shadow-sm">
+                      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" className="text-amber-600">
+                        <rect x="3" y="6" width="18" height="13" rx="2" stroke="currentColor" strokeWidth="1.8"/>
+                        <path d="M3 10H21" stroke="currentColor" strokeWidth="1.8"/>
+                        <path d="M7 15H10" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+                        <path d="M16 3V6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+                        <path d="M8 3V6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+                      </svg>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-bold text-[14px] mb-0.5 tracking-tight">발렉스 현금 수거 기록</p>
+                      <p className="text-[12px] text-muted-foreground leading-relaxed">매장 현금 수거 완료 후 기록</p>
+                    </div>
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="shrink-0 text-muted-foreground/50">
+                      <path d="M6 12L10 8L6 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                  </CardContent>
+                </Card>
+              </Link>
+              <Link href="/repair-request">
+                <Card className="cursor-pointer border-border/40 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-150 rounded-2xl">
+                  <CardContent className="p-4 flex items-center gap-4">
+                    <div className="shrink-0 w-14 h-14 rounded-2xl flex items-center justify-center bg-primary/10 shadow-sm">
+                      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" className="text-primary">
+                        <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-bold text-[14px] mb-0.5 tracking-tight">수리 접수</p>
+                      <p className="text-[12px] text-muted-foreground leading-relaxed">장비 고장/수리 사진 첨부 접수</p>
+                    </div>
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="shrink-0 text-muted-foreground/50">
+                      <path d="M6 12L10 8L6 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                  </CardContent>
+                </Card>
+              </Link>
+            </div>
+
+            {/* Categories */}
+            <p className="text-[16px] font-bold text-foreground mb-4">어떤 문제인가요?</p>
+            <div className="grid grid-cols-2 gap-3 mb-6">
+              {GUIDE_DATA.categories.map(cat => (
+                <Link key={cat.id} href={`/category/${cat.id}`}>
+                  <Card className="cursor-pointer border-border/40 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-150 rounded-2xl h-full">
+                    <CardContent className="pt-6 pb-5 px-4 text-center">
+                      <div className="w-14 h-14 mx-auto mb-3 rounded-2xl flex items-center justify-center bg-primary/10 shadow-sm">
+                        {CATEGORY_ICONS[cat.id] || cat.icon}
+                      </div>
+                      <p className="font-bold text-[14px] mb-1 tracking-tight">{cat.title}</p>
+                      <p className="text-[12px] text-muted-foreground leading-relaxed">{cat.desc}</p>
+                      <span className="inline-block mt-2.5 border border-primary/30 text-primary text-[11px] font-semibold rounded-full px-3 py-0.5">
+                        {cat.guides.length}개 가이드
+                      </span>
+                    </CardContent>
+                  </Card>
+                </Link>
+              ))}
             </div>
           </>
         )}

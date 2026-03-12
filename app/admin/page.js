@@ -16,7 +16,7 @@ import {
 } from '@/components/ui/table'
 
 export default function AdminPage() {
-  const [tab, setTab] = useState('check') // 'check' | 'login' | 'views' | 'search' | 'notice'
+  const [tab, setTab] = useState('check') // 'check' | 'login' | 'cash' | 'views' | 'search' | 'notice'
 
   return (
     <main className="min-h-screen bg-background">
@@ -47,6 +47,16 @@ export default function AdminPage() {
               onClick={() => setTab('login')}
             >
               로그인 정보
+            </button>
+            <button
+              className={`text-[14px] font-semibold px-4 py-2.5 border-b-2 transition-colors shrink-0 ${
+                tab === 'cash'
+                  ? 'border-primary text-primary'
+                  : 'border-transparent text-muted-foreground hover:text-foreground'
+              }`}
+              onClick={() => setTab('cash')}
+            >
+              현금 수거
             </button>
             <button
               className={`text-[14px] font-semibold px-4 py-2.5 border-b-2 transition-colors shrink-0 ${
@@ -85,6 +95,7 @@ export default function AdminPage() {
       <div className="max-w-2xl mx-auto px-5 py-6">
         {tab === 'check' && <StoreCheckTab />}
         {tab === 'login' && <LoginInfoTab />}
+        {tab === 'cash' && <CashCollectionTab />}
         {tab === 'views' && <GuideViewsTab />}
         {tab === 'search' && <SearchLogTab />}
         {tab === 'notice' && <NoticeManageTab />}
@@ -298,6 +309,213 @@ function NoticeManageTab() {
           </CardContent>
         </Card>
       )}
+    </div>
+  )
+}
+
+// ==================== 현금 수거 탭 ====================
+function CashCollectionTab() {
+  const [stores, setStores] = useState([])
+  const [collections, setCollections] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [regionFilter, setRegionFilter] = useState('전체')
+  const [showFilter, setShowFilter] = useState('all') // 'all' | 'done' | 'missing'
+
+  // 월 선택 (기본: 지난달)
+  const now = new Date()
+  const defaultYear = now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear()
+  const defaultMonth = now.getMonth() === 0 ? 12 : now.getMonth()
+  const [selectedMonth, setSelectedMonth] = useState(`${defaultYear}-${String(defaultMonth).padStart(2, '0')}`)
+
+  const selectedLabel = (() => {
+    const [y, m] = selectedMonth.split('-')
+    return `${y}년 ${parseInt(m)}월`
+  })()
+
+  // 최근 12개월 옵션 생성
+  const monthOptions = []
+  for (let i = 0; i < 12; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth() - 1 - i, 1)
+    const val = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+    const label = `${d.getFullYear()}년 ${d.getMonth() + 1}월`
+    monthOptions.push({ value: val, label })
+  }
+
+  const fetchData = useCallback(async () => {
+    setLoading(true)
+    const [storeRes, collRes] = await Promise.all([
+      supabase.from('stores').select('*').order('region, name'),
+      supabase.from('cash_collections')
+        .select('*, stores(name, code, region)')
+        .eq('target_month', selectedMonth)
+        .order('created_at', { ascending: false }),
+    ])
+    setStores(storeRes.data || [])
+    setCollections(collRes.data || [])
+    setLoading(false)
+  }, [selectedMonth])
+
+  useEffect(() => { fetchData() }, [fetchData])
+
+  async function deleteRecord(id) {
+    if (!confirm('이 수거 기록을 삭제할까요?')) return
+    await supabase.from('cash_collections').delete().eq('id', id)
+    fetchData()
+  }
+
+  const collectedStoreIds = new Set(collections.map(c => c.store_id))
+  const regions = ['전체', ...Array.from(new Set(stores.map(s => s.region).filter(Boolean))).sort()]
+
+  const filteredStores = stores.filter(s => {
+    const matchRegion = regionFilter === '전체' || s.region === regionFilter
+    if (!matchRegion) return false
+    if (showFilter === 'done') return collectedStoreIds.has(s.id)
+    if (showFilter === 'missing') return !collectedStoreIds.has(s.id)
+    return true
+  })
+
+  const totalStores = stores.filter(s => regionFilter === '전체' || s.region === regionFilter).length
+  const doneCount = filteredStores.filter(s => collectedStoreIds.has(s.id)).length
+  const missingCount = totalStores - stores.filter(s => (regionFilter === '전체' || s.region === regionFilter) && collectedStoreIds.has(s.id)).length
+  const progress = totalStores > 0 ? Math.round((stores.filter(s => (regionFilter === '전체' || s.region === regionFilter) && collectedStoreIds.has(s.id)).length / totalStores) * 100) : 0
+
+  if (loading) return <p className="text-[13px] text-muted-foreground text-center py-10">불러오는 중...</p>
+
+  return (
+    <div className="space-y-5">
+      {/* 월 선택 */}
+      <div>
+        <p className="text-[16px] font-bold mb-3">{selectedLabel} 현금 수거 현황</p>
+        <div className="flex gap-2 flex-wrap">
+          {monthOptions.map(opt => (
+            <button
+              key={opt.value}
+              className={`text-[12px] px-4 py-1.5 rounded-full font-semibold transition-colors ${
+                selectedMonth === opt.value
+                  ? 'bg-primary text-white'
+                  : 'border border-primary/30 text-primary hover:bg-primary/5'
+              }`}
+              onClick={() => setSelectedMonth(opt.value)}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* 진행률 */}
+      <Card className="rounded-2xl border-border/40 shadow-sm">
+        <CardContent className="p-5">
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-[15px] font-bold">수거 완료</p>
+            <span className="text-[14px] font-bold text-primary">
+              {stores.filter(s => (regionFilter === '전체' || s.region === regionFilter) && collectedStoreIds.has(s.id)).length}/{totalStores}
+            </span>
+          </div>
+          <div className="w-full h-2.5 bg-secondary rounded-full overflow-hidden">
+            <div
+              className="h-full bg-primary rounded-full transition-all duration-300"
+              style={{ width: `${progress}%` }}
+            />
+          </div>
+          <p className="text-[12px] text-muted-foreground mt-2">{progress}% 완료</p>
+        </CardContent>
+      </Card>
+
+      {/* 지역 필터 */}
+      <div className="flex gap-2 flex-wrap">
+        {regions.map(r => (
+          <button
+            key={r}
+            className={`text-[12px] px-4 py-1.5 rounded-full font-semibold transition-colors ${
+              regionFilter === r
+                ? 'bg-primary text-white'
+                : 'border border-primary/30 text-primary hover:bg-primary/5'
+            }`}
+            onClick={() => setRegionFilter(r)}
+          >
+            {r}
+          </button>
+        ))}
+      </div>
+
+      {/* 상태 필터 */}
+      <div className="flex gap-2">
+        {[
+          { key: 'all', label: '전체' },
+          { key: 'missing', label: `미수거 ${missingCount}` },
+          { key: 'done', label: `완료 ${doneCount}` },
+        ].map(f => (
+          <button
+            key={f.key}
+            className={`text-[12px] px-4 py-1.5 rounded-full font-semibold transition-colors ${
+              showFilter === f.key
+                ? f.key === 'missing' ? 'bg-red-500 text-white' : 'bg-primary text-white'
+                : f.key === 'missing' ? 'border border-red-300 text-red-500 hover:bg-red-50' : 'border border-primary/30 text-primary hover:bg-primary/5'
+            }`}
+            onClick={() => setShowFilter(f.key)}
+          >
+            {f.label}
+          </button>
+        ))}
+      </div>
+
+      {/* 매장 리스트 */}
+      <Card className="rounded-2xl border-border/40 shadow-sm overflow-hidden">
+        <CardContent className="p-0">
+          <div className="max-h-[500px] overflow-y-auto">
+            {filteredStores.length === 0 ? (
+              <p className="text-[13px] text-muted-foreground text-center py-10">해당 조건의 매장이 없습니다</p>
+            ) : (
+              filteredStores.map(store => {
+                const record = collections.find(c => c.store_id === store.id)
+                const isDone = !!record
+                return (
+                  <div key={store.id} className={`border-b border-border/30 px-4 py-3 ${isDone ? 'bg-primary/5' : ''}`}>
+                    <div className="flex items-center gap-3">
+                      <div className={`shrink-0 w-6 h-6 rounded-lg border-2 flex items-center justify-center ${
+                        isDone ? 'bg-primary border-primary' : 'border-red-300 bg-red-50'
+                      }`}>
+                        {isDone ? (
+                          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                            <path d="M3 7L6 10L11 4" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                          </svg>
+                        ) : (
+                          <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+                            <path d="M2 5H8" stroke="#EF4444" strokeWidth="1.5" strokeLinecap="round"/>
+                          </svg>
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className={`text-[14px] font-medium truncate ${isDone ? 'text-muted-foreground' : 'text-foreground font-bold'}`}>
+                          {store.name}
+                        </p>
+                        {isDone && record && (
+                          <p className="text-[12px] text-muted-foreground mt-0.5">
+                            {record.worker_name} · {record.collection_date}
+                          </p>
+                        )}
+                      </div>
+                      <span className="text-[11px] text-muted-foreground font-mono shrink-0">{store.code}</span>
+                      {store.region && (
+                        <Badge variant="outline" className="text-[10px] rounded-md font-medium shrink-0">{store.region}</Badge>
+                      )}
+                      {isDone && (
+                        <button
+                          onClick={() => deleteRecord(record.id)}
+                          className="text-[11px] font-semibold text-red-400 hover:text-red-600 shrink-0 transition-colors"
+                        >
+                          삭제
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )
+              })
+            )}
+          </div>
+        </CardContent>
+      </Card>
     </div>
   )
 }
