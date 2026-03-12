@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
+import html2canvas from 'html2canvas'
 import { supabase } from '../../lib/supabase'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
@@ -27,6 +28,8 @@ export default function RepairConfirmPage() {
   const [statusFilter, setStatusFilter] = useState('all')
   const [expandedId, setExpandedId] = useState(null)
   const [updating, setUpdating] = useState(null)
+  const [exporting, setExporting] = useState(false)
+  const exportRef = useRef(null)
 
   const fetchRecords = useCallback(async () => {
     let query = supabase
@@ -47,6 +50,28 @@ export default function RepairConfirmPage() {
     setLoading(true)
     fetchRecords()
   }, [fetchRecords])
+
+  async function exportToJpg(record) {
+    if (!exportRef.current) return
+    setExporting(true)
+    try {
+      const canvas = await html2canvas(exportRef.current, {
+        backgroundColor: '#ffffff',
+        scale: 2,
+        useCORS: true,
+        allowTaint: true,
+      })
+      const link = document.createElement('a')
+      const storeName = record.stores?.name || '수리접수'
+      const date = new Date(record.created_at).toLocaleDateString('ko-KR').replace(/\./g, '').replace(/\s/g, '')
+      link.download = `수리접수_${storeName}_${date}.jpg`
+      link.href = canvas.toDataURL('image/jpeg', 0.95)
+      link.click()
+    } catch (e) {
+      alert('이미지 저장에 실패했습니다.')
+    }
+    setExporting(false)
+  }
 
   async function updateStatus(id, newStatus) {
     setUpdating(id)
@@ -195,7 +220,7 @@ export default function RepairConfirmPage() {
 
                     {/* 펼침 상세 */}
                     {isExpanded && (
-                      <div className="border-t border-border/40 p-4 space-y-4 bg-secondary/20">
+                      <div ref={exportRef} className="border-t border-border/40 p-4 space-y-4 bg-white">
                         {/* 매장 정보 */}
                         <div>
                           <p className="text-[12px] font-bold text-muted-foreground mb-1">매장</p>
@@ -234,7 +259,22 @@ export default function RepairConfirmPage() {
                           <span>접수일: <strong className="text-foreground font-mono">{new Date(r.created_at).toLocaleString('ko-KR')}</strong></span>
                         </div>
 
-                        {/* 상태 변경 버튼 */}
+                        {/* JPG 내보내기 + 상태 변경 */}
+                        <div className="flex items-center gap-3 pt-1">
+                          <button
+                            onClick={() => exportToJpg(r)}
+                            disabled={exporting}
+                            className="flex items-center gap-1.5 text-[13px] font-semibold px-4 py-2 rounded-xl border border-border/60 text-foreground bg-card hover:bg-secondary/50 transition-colors disabled:opacity-50"
+                          >
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" className="shrink-0">
+                              <path d="M21 15V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V15" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                              <polyline points="7 10 12 15 17 10" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                              <line x1="12" y1="15" x2="12" y2="3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                            </svg>
+                            {exporting ? '저장 중...' : 'JPG 저장'}
+                          </button>
+                        </div>
+
                         <div>
                           <p className="text-[12px] font-bold text-muted-foreground mb-2">상태 변경</p>
                           <div className="flex gap-2">
