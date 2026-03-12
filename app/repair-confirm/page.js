@@ -55,12 +55,30 @@ export default function RepairConfirmPage() {
     if (!exportRef.current) return
     setExporting(true)
     try {
+      // 외부 이미지를 base64로 변환해서 CORS 우회
+      const imgs = exportRef.current.querySelectorAll('img')
+      const origSrcs = []
+      for (const img of imgs) {
+        origSrcs.push(img.src)
+        try {
+          const res = await fetch(img.src)
+          const blob = await res.blob()
+          img.src = await new Promise(resolve => {
+            const reader = new FileReader()
+            reader.onloadend = () => resolve(reader.result)
+            reader.readAsDataURL(blob)
+          })
+        } catch {}
+      }
+
       const canvas = await html2canvas(exportRef.current, {
         backgroundColor: '#ffffff',
         scale: 2,
-        useCORS: true,
-        allowTaint: true,
       })
+
+      // 원본 src 복원
+      imgs.forEach((img, i) => { img.src = origSrcs[i] })
+
       const link = document.createElement('a')
       const storeName = record.stores?.name || '수리접수'
       const date = new Date(record.created_at).toLocaleDateString('ko-KR').replace(/\./g, '').replace(/\s/g, '')
