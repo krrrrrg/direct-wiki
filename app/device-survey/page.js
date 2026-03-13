@@ -121,8 +121,6 @@ export default function DeviceSurveyPage() {
     removePhoto('barcode')
     setAlreadyDone(false)
     fetchDoneCount()
-
-    setTimeout(() => setSaved(false), 3000)
   }
 
   const canSubmit = selectedStore &&
@@ -137,9 +135,32 @@ export default function DeviceSurveyPage() {
     )
   }
 
+  if (saved) {
+    return (
+      <main className="min-h-screen bg-background">
+        <Header title="바코드 리더기 모델명 조사" showBack />
+        <div className="max-w-[480px] mx-auto px-5 pb-10 pt-20 text-center">
+          <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-emerald-500/10 flex items-center justify-center">
+            <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
+              <path d="M10 20L17 27L30 13" stroke="#10B981" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </div>
+          <p className="text-[22px] font-extrabold text-foreground mb-2">제출이 완료되었습니다</p>
+          <p className="text-[15px] text-muted-foreground mb-8">감사합니다</p>
+          <button
+            onClick={() => setSaved(false)}
+            className="text-[14px] font-semibold text-primary hover:underline"
+          >
+            다른 매장도 입력하기
+          </button>
+        </div>
+      </main>
+    )
+  }
+
   return (
     <main className="min-h-screen bg-background">
-      <Header title="장비 모델명 조사" showBack />
+      <Header title="바코드 리더기 모델명 조사" showBack />
 
       <div className="max-w-[480px] mx-auto px-5 pb-10">
         {/* 안내 + 진행률 */}
@@ -284,15 +305,6 @@ export default function DeviceSurveyPage() {
               {saving ? '제출 중...' : alreadyDone ? '다시 제출하기' : '제출하기'}
             </button>
 
-            {saved && (
-              <div className="flex items-center gap-2 justify-center text-[13px] font-semibold text-emerald-600">
-                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                  <circle cx="8" cy="8" r="7" stroke="currentColor" strokeWidth="1.5"/>
-                  <path d="M5 8L7 10L11 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
-                제출 완료
-              </div>
-            )}
           </CardContent>
         </Card>
       </div>
