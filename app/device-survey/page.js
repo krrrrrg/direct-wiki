@@ -258,7 +258,7 @@ export default function DeviceSurveyPage() {
               <Input
                 value={barcodeModel}
                 onChange={e => setBarcodeModel(e.target.value)}
-                placeholder="예: HR22 Dorada II"
+                placeholder="예: DS-2208"
                 className="h-11 text-[14px] rounded-xl mb-2"
               />
               <div className="flex items-center gap-2">
