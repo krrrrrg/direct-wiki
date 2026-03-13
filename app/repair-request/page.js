@@ -177,7 +177,7 @@ export default function RepairRequestPage() {
                     value={storeSearch}
                     onChange={e => setStoreSearch(e.target.value)}
                     placeholder="매장명 또는 매장코드 검색"
-                    className="h-11 text-[14px] rounded-xl"
+                    className="h-11 text-[16px] rounded-xl"
                   />
                   {filteredStores.length > 0 && (
                     <div className="mt-2 max-h-[200px] overflow-y-auto rounded-xl border border-border/40">
@@ -227,7 +227,7 @@ export default function RepairRequestPage() {
                     value={staffSearch}
                     onChange={e => setStaffSearch(e.target.value)}
                     placeholder="이름 또는 사번으로 검색"
-                    className="h-11 text-[14px] rounded-xl"
+                    className="h-11 text-[16px] rounded-xl"
                   />
                   {filteredStaff.length > 0 && (
                     <div className="mt-2 max-h-[200px] overflow-y-auto rounded-xl border border-border/40">

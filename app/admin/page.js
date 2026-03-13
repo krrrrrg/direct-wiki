@@ -196,13 +196,13 @@ function NoticeManageTab() {
             value={title}
             onChange={e => setTitle(e.target.value)}
             placeholder="공지 제목을 입력하세요"
-            className="h-11 text-[14px] rounded-xl"
+            className="h-11 text-[16px] rounded-xl"
             onKeyDown={e => e.key === 'Enter' && saveNotice()}
           />
           <select
             value={guideId}
             onChange={e => setGuideId(e.target.value)}
-            className="w-full h-11 text-[14px] rounded-xl border border-input bg-background px-3 focus:outline-none focus:ring-2 focus:ring-ring"
+            className="w-full h-11 text-[16px] rounded-xl border border-input bg-background px-3 focus:outline-none focus:ring-2 focus:ring-ring"
           >
             <option value="">연결할 가이드 선택 (선택사항)</option>
             {GUIDE_DATA.categories.map(cat => (
@@ -657,7 +657,7 @@ function StoreCheckTab() {
               value={newProjectTitle}
               onChange={e => setNewProjectTitle(e.target.value)}
               placeholder="프로젝트 제목 (예: 3월 9일 중간 정산)"
-              className="flex-1 h-11 text-[14px] rounded-xl"
+              className="flex-1 h-11 text-[16px] rounded-xl"
               onKeyDown={e => e.key === 'Enter' && createProject()}
             />
             <button
@@ -878,19 +878,19 @@ function LoginInfoTab() {
               value={newId}
               onChange={e => setNewId(e.target.value)}
               placeholder="아이디"
-              className="flex-1 min-w-[100px] h-11 text-[14px] rounded-xl"
+              className="flex-1 min-w-[100px] h-11 text-[16px] rounded-xl"
             />
             <Input
               value={newName}
               onChange={e => setNewName(e.target.value)}
               placeholder="이름"
-              className="flex-1 min-w-[100px] h-11 text-[14px] rounded-xl"
+              className="flex-1 min-w-[100px] h-11 text-[16px] rounded-xl"
             />
             <Input
               value={newBranch}
               onChange={e => setNewBranch(e.target.value)}
               placeholder="지점"
-              className="w-[100px] h-11 text-[14px] rounded-xl"
+              className="w-[100px] h-11 text-[16px] rounded-xl"
             />
             <button
               onClick={addItem}

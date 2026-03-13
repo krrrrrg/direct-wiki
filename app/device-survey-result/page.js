@@ -141,7 +141,7 @@ export default function DeviceSurveyResultPage() {
             value={search}
             onChange={e => setSearch(e.target.value)}
             placeholder="매장명 또는 매장코드 검색"
-            className="h-11 text-[14px] rounded-xl"
+            className="h-11 text-[16px] rounded-xl"
           />
         </div>
 

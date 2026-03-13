@@ -175,7 +175,7 @@ export default function RepairConfirmPage() {
             value={search}
             onChange={e => setSearch(e.target.value)}
             placeholder="매장명, 매장코드, 접수자, 증상 검색"
-            className="h-11 text-[14px] rounded-xl"
+            className="h-11 text-[16px] rounded-xl"
           />
         </div>
 

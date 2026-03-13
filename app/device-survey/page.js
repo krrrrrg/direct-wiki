@@ -227,7 +227,7 @@ export default function DeviceSurveyPage() {
                     value={storeSearch}
                     onChange={e => setStoreSearch(e.target.value)}
                     placeholder="매장명 또는 매장코드 검색"
-                    className="h-11 text-[14px] rounded-xl"
+                    className="h-11 text-[16px] rounded-xl"
                   />
                   {filteredStores.length > 0 && (
                     <div className="mt-2 max-h-[200px] overflow-y-auto rounded-xl border border-border/40">
@@ -269,7 +269,7 @@ export default function DeviceSurveyPage() {
                 value={barcodeModel}
                 onChange={e => setBarcodeModel(e.target.value)}
                 placeholder="예: DS-2208"
-                className="h-11 text-[14px] rounded-xl mb-2"
+                className="h-11 text-[16px] rounded-xl mb-2"
               />
               <div className="flex items-center gap-2">
                 {barcodePreview ? (
