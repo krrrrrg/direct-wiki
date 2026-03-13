@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
-import html2canvas from 'html2canvas'
+import html2canvas from 'html2canvas-pro'
 import { supabase } from '../../lib/supabase'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
