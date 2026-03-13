@@ -221,24 +221,6 @@ export default function DeviceSurveyResultPage() {
                           )}
                         </div>
 
-                        {/* 카드단말기 */}
-                        <div>
-                          <p className="text-[12px] font-bold text-muted-foreground mb-1">카드단말기</p>
-                          {survey.card_terminal_model && (
-                            <p className="text-[15px] font-bold text-foreground">{survey.card_terminal_model}</p>
-                          )}
-                          {survey.card_terminal_photo && (
-                            <a href={survey.card_terminal_photo} target="_blank" rel="noopener noreferrer">
-                              <div className="mt-2 w-32 h-32 rounded-xl overflow-hidden border border-border/40 hover:opacity-80 transition-opacity">
-                                <img src={survey.card_terminal_photo} alt="카드단말기" className="w-full h-full object-cover" />
-                              </div>
-                            </a>
-                          )}
-                          {!survey.card_terminal_model && !survey.card_terminal_photo && (
-                            <p className="text-[13px] text-muted-foreground">미입력</p>
-                          )}
-                        </div>
-
                         {/* 응답 일시 */}
                         <p className="text-[12px] text-muted-foreground">
                           응답일: <strong className="text-foreground font-mono">{new Date(survey.created_at).toLocaleString('ko-KR')}</strong>

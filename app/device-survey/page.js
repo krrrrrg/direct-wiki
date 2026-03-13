@@ -13,9 +13,6 @@ export default function DeviceSurveyPage() {
   const [barcodeModel, setBarcodeModel] = useState('')
   const [barcodePhoto, setBarcodePhoto] = useState(null)
   const [barcodePreview, setBarcodePreview] = useState(null)
-  const [terminalModel, setTerminalModel] = useState('')
-  const [terminalPhoto, setTerminalPhoto] = useState(null)
-  const [terminalPreview, setTerminalPreview] = useState(null)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [alreadyDone, setAlreadyDone] = useState(false)
@@ -97,21 +94,16 @@ export default function DeviceSurveyPage() {
   async function handleSubmit() {
     if (!selectedStore) return
     if (!barcodeModel.trim() && !barcodePhoto) return
-    if (!terminalModel.trim() && !terminalPhoto) return
     setSaving(true)
 
     let barcodePhotoUrl = null
-    let terminalPhotoUrl = null
     if (barcodePhoto) barcodePhotoUrl = await uploadPhoto(barcodePhoto)
-    if (terminalPhoto) terminalPhotoUrl = await uploadPhoto(terminalPhoto)
 
     const payload = {
       store_id: selectedStore.id,
       reporter_name: selectedStore.name,
       barcode_reader_model: barcodeModel.trim() || null,
       barcode_reader_photo: barcodePhotoUrl,
-      card_terminal_model: terminalModel.trim() || null,
-      card_terminal_photo: terminalPhotoUrl,
     }
 
     // UNIQUE(store_id) 이므로 이미 있으면 덮어쓰기
@@ -126,9 +118,7 @@ export default function DeviceSurveyPage() {
     setSelectedStore(null)
     setStoreSearch('')
     setBarcodeModel('')
-    setTerminalModel('')
     removePhoto('barcode')
-    removePhoto('terminal')
     setAlreadyDone(false)
     fetchDoneCount()
 
@@ -136,8 +126,7 @@ export default function DeviceSurveyPage() {
   }
 
   const canSubmit = selectedStore &&
-    (barcodeModel.trim() || barcodePhoto) &&
-    (terminalModel.trim() || terminalPhoto)
+    (barcodeModel.trim() || barcodePhoto)
 
   if (loading) {
     return (
@@ -166,8 +155,8 @@ export default function DeviceSurveyPage() {
               </svg>
             </div>
             <div>
-              <p className="text-[14px] font-bold text-primary">장비 모델명 조사</p>
-              <p className="text-[12px] text-primary/70 mt-0.5">매장의 바코드 리더기, 카드단말기 모델명을 입력해주세요</p>
+              <p className="text-[14px] font-bold text-primary">바코드 리더기 모델명 조사</p>
+              <p className="text-[12px] text-primary/70 mt-0.5">매장의 바코드 리더기 모델명을 입력해주세요</p>
             </div>
           </div>
 
@@ -279,47 +268,6 @@ export default function DeviceSurveyPage() {
                       type="file"
                       accept="image/*"
                       onChange={e => handlePhoto(e.target.files[0], 'barcode')}
-                      className="hidden"
-                    />
-                  </label>
-                )}
-              </div>
-            </div>
-
-            {/* 카드단말기 */}
-            <div>
-              <label className="text-[13px] font-bold text-foreground mb-2 block">
-                카드단말기 모델명
-              </label>
-              <p className="text-[12px] text-muted-foreground mb-2">모델명을 알면 직접 입력, 모르면 사진 촬영</p>
-              <Input
-                value={terminalModel}
-                onChange={e => setTerminalModel(e.target.value)}
-                placeholder="예: KICC T5"
-                className="h-11 text-[14px] rounded-xl mb-2"
-              />
-              <div className="flex items-center gap-2">
-                {terminalPreview ? (
-                  <div className="relative w-20 h-20 rounded-xl overflow-hidden border border-border/40">
-                    <img src={terminalPreview} alt="" className="w-full h-full object-cover" />
-                    <button
-                      onClick={() => removePhoto('terminal')}
-                      className="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/60 text-white flex items-center justify-center text-[11px]"
-                    >
-                      &times;
-                    </button>
-                  </div>
-                ) : (
-                  <label className="w-20 h-20 rounded-xl border-2 border-dashed border-border/60 flex flex-col items-center justify-center cursor-pointer hover:border-primary/40 transition-colors">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" className="text-muted-foreground">
-                      <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                      <circle cx="12" cy="13" r="4" stroke="currentColor" strokeWidth="1.5"/>
-                    </svg>
-                    <span className="text-[10px] text-muted-foreground mt-1">사진</span>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={e => handlePhoto(e.target.files[0], 'terminal')}
                       className="hidden"
                     />
                   </label>
