@@ -71,12 +71,17 @@ export default function RepairConfirmPage() {
         } catch {}
       }
 
+      // 버튼 영역 숨기기
+      const hideEls = exportRef.current.querySelectorAll('[data-hide-export]')
+      hideEls.forEach(el => { el.style.display = 'none' })
+
       const canvas = await html2canvas(exportRef.current, {
         backgroundColor: '#ffffff',
         scale: 2,
       })
 
-      // 원본 src 복원
+      // 원본 복원
+      hideEls.forEach(el => { el.style.display = '' })
       imgs.forEach((img, i) => { img.src = origSrcs[i] })
 
       const link = document.createElement('a')
@@ -278,7 +283,7 @@ export default function RepairConfirmPage() {
                         </div>
 
                         {/* JPG 내보내기 + 상태 변경 */}
-                        <div className="flex items-center gap-3 pt-1">
+                        <div data-hide-export className="flex items-center gap-3 pt-1">
                           <button
                             onClick={() => exportToJpg(r)}
                             disabled={exporting}
@@ -289,11 +294,11 @@ export default function RepairConfirmPage() {
                               <polyline points="7 10 12 15 17 10" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
                               <line x1="12" y1="15" x2="12" y2="3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
                             </svg>
-                            {exporting ? '저장 중...' : 'JPG 저장'}
+                            {exporting ? '다운로드 중...' : '이미지 다운로드'}
                           </button>
                         </div>
 
-                        <div>
+                        <div data-hide-export>
                           <p className="text-[12px] font-bold text-muted-foreground mb-2">상태 변경</p>
                           <div className="flex gap-2">
                             {r.status !== 'pending' && (
