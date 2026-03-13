@@ -10,7 +10,6 @@ export default function DeviceSurveyPage() {
   const [stores, setStores] = useState([])
   const [storeSearch, setStoreSearch] = useState('')
   const [selectedStore, setSelectedStore] = useState(null)
-  const [reporterName, setReporterName] = useState('')
   const [barcodeModel, setBarcodeModel] = useState('')
   const [barcodePhoto, setBarcodePhoto] = useState(null)
   const [barcodePreview, setBarcodePreview] = useState(null)
@@ -96,7 +95,7 @@ export default function DeviceSurveyPage() {
   }
 
   async function handleSubmit() {
-    if (!selectedStore || !reporterName.trim()) return
+    if (!selectedStore) return
     if (!barcodeModel.trim() && !barcodePhoto) return
     if (!terminalModel.trim() && !terminalPhoto) return
     setSaving(true)
@@ -108,7 +107,7 @@ export default function DeviceSurveyPage() {
 
     const payload = {
       store_id: selectedStore.id,
-      reporter_name: reporterName.trim(),
+      reporter_name: selectedStore.name,
       barcode_reader_model: barcodeModel.trim() || null,
       barcode_reader_photo: barcodePhotoUrl,
       card_terminal_model: terminalModel.trim() || null,
@@ -126,7 +125,6 @@ export default function DeviceSurveyPage() {
     setSaved(true)
     setSelectedStore(null)
     setStoreSearch('')
-    setReporterName('')
     setBarcodeModel('')
     setTerminalModel('')
     removePhoto('barcode')
@@ -137,7 +135,7 @@ export default function DeviceSurveyPage() {
     setTimeout(() => setSaved(false), 3000)
   }
 
-  const canSubmit = selectedStore && reporterName.trim() &&
+  const canSubmit = selectedStore &&
     (barcodeModel.trim() || barcodePhoto) &&
     (terminalModel.trim() || terminalPhoto)
 
@@ -237,6 +235,7 @@ export default function DeviceSurveyPage() {
                   {storeSearch.trim() && filteredStores.length === 0 && (
                     <div className="mt-2 text-center py-3">
                       <p className="text-[12px] text-muted-foreground">검색 결과 없음</p>
+                      <p className="text-[11px] text-muted-foreground mt-1">경영지원 제명환 <a href="tel:01087488031" className="text-primary font-semibold">010-8748-8031</a> 연락</p>
                     </div>
                   )}
                 </>
@@ -244,17 +243,6 @@ export default function DeviceSurveyPage() {
               {alreadyDone && (
                 <p className="text-[12px] text-amber-600 font-semibold mt-2">이미 응답한 매장입니다. 다시 제출하면 덮어씁니다.</p>
               )}
-            </div>
-
-            {/* 응답자 */}
-            <div>
-              <label className="text-[13px] font-bold text-foreground mb-2 block">응답자 이름</label>
-              <Input
-                value={reporterName}
-                onChange={e => setReporterName(e.target.value)}
-                placeholder="이름 입력"
-                className="h-11 text-[14px] rounded-xl"
-              />
             </div>
 
             {/* 바코드 리더기 */}
