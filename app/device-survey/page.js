@@ -113,6 +113,16 @@ export default function DeviceSurveyPage() {
       await supabase.from('device_surveys').insert(payload)
     }
 
+    // store_assets 바코드 리더기 모델명도 동기화
+    if (barcodeModel.trim()) {
+      const { data: existing } = await supabase.from('store_assets').select('id').eq('store_id', selectedStore.id).limit(1)
+      if (existing && existing.length > 0) {
+        await supabase.from('store_assets').update({ barcode_reader_model: barcodeModel.trim() }).eq('store_id', selectedStore.id)
+      } else {
+        await supabase.from('store_assets').insert({ store_id: selectedStore.id, barcode_reader_model: barcodeModel.trim() })
+      }
+    }
+
     setSaving(false)
     setSaved(true)
     setSelectedStore(null)
