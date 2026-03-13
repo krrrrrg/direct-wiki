@@ -146,13 +146,7 @@ export default function DeviceSurveyPage() {
             </svg>
           </div>
           <p className="text-[22px] font-extrabold text-foreground mb-2">제출이 완료되었습니다</p>
-          <p className="text-[15px] text-muted-foreground mb-8">감사합니다</p>
-          <button
-            onClick={() => setSaved(false)}
-            className="text-[14px] font-semibold text-primary hover:underline"
-          >
-            다른 매장도 입력하기
-          </button>
+          <p className="text-[15px] text-muted-foreground">감사합니다</p>
         </div>
       </main>
     )
