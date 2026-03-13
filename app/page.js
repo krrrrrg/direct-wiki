@@ -357,8 +357,8 @@ export default function Home() {
             {/* Cash Collection */}
             <p className="text-[16px] font-bold text-foreground mb-4">업무</p>
             <div className="grid grid-cols-2 gap-3 mb-8">
-              <Link href="/cash-collection">
-                <Card className="cursor-pointer border-border/40 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-150 rounded-2xl">
+              <Link href="/cash-collection" className="block h-full">
+                <Card className="cursor-pointer border-border/40 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-150 rounded-2xl h-full">
                   <CardContent className="pt-6 pb-5 px-4 text-center">
                     <div className="w-14 h-14 mx-auto mb-3 rounded-2xl flex items-center justify-center bg-amber-500/10 shadow-sm">
                       <svg width="28" height="28" viewBox="0 0 24 24" fill="none" className="text-amber-600">
@@ -369,13 +369,13 @@ export default function Home() {
                         <path d="M8 3V6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
                       </svg>
                     </div>
-                    <p className="font-bold text-[14px] mb-1 tracking-tight">발렉스 현금 수거 기록</p>
-                    <p className="text-[12px] text-muted-foreground leading-relaxed">매장 현금 수거 완료 후 기록</p>
+                    <p className="font-bold text-[14px] mb-1 tracking-tight">발렉스 현금 수거</p>
+                    <p className="text-[12px] text-muted-foreground leading-relaxed">현금 수거 완료 후 기록</p>
                   </CardContent>
                 </Card>
               </Link>
-              <Link href="/repair-request">
-                <Card className="cursor-pointer border-border/40 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-150 rounded-2xl">
+              <Link href="/repair-request" className="block h-full">
+                <Card className="cursor-pointer border-border/40 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-150 rounded-2xl h-full">
                   <CardContent className="pt-6 pb-5 px-4 text-center">
                     <div className="w-14 h-14 mx-auto mb-3 rounded-2xl flex items-center justify-center bg-primary/10 shadow-sm">
                       <svg width="28" height="28" viewBox="0 0 24 24" fill="none" className="text-primary">
