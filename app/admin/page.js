@@ -16,7 +16,7 @@ import {
 } from '@/components/ui/table'
 
 export default function AdminPage() {
-  const [tab, setTab] = useState('check') // 'check' | 'login' | 'cash' | 'views' | 'search' | 'notice'
+  const [tab, setTab] = useState('check') // 'check' | 'login' | 'cash' | 'views' | 'search' | 'notice' | 'sitemap'
 
   return (
     <main className="min-h-screen bg-background">
@@ -88,6 +88,16 @@ export default function AdminPage() {
             >
               공지사항
             </button>
+            <button
+              className={`text-[14px] font-semibold px-4 py-2.5 border-b-2 transition-colors shrink-0 ${
+                tab === 'sitemap'
+                  ? 'border-primary text-primary'
+                  : 'border-transparent text-muted-foreground hover:text-foreground'
+              }`}
+              onClick={() => setTab('sitemap')}
+            >
+              사이트맵
+            </button>
           </div>
         </div>
       </div>
@@ -99,6 +109,7 @@ export default function AdminPage() {
         {tab === 'views' && <GuideViewsTab />}
         {tab === 'search' && <SearchLogTab />}
         {tab === 'notice' && <NoticeManageTab />}
+        {tab === 'sitemap' && <SitemapTab />}
       </div>
     </main>
   )
@@ -1177,6 +1188,103 @@ function SearchLogTab() {
           </div>
         </CardContent>
       </Card>
+    </div>
+  )
+}
+
+// ==================== 사이트맵 탭 ====================
+function SitemapTab() {
+  const sitePages = [
+    {
+      section: '메인',
+      pages: [
+        { path: '/', name: '홈 (통합 검색 + 가이드)', desc: '검색, 카테고리별 가이드, POS 정보 조회' },
+      ]
+    },
+    {
+      section: '가이드',
+      pages: GUIDE_DATA.categories.flatMap(cat =>
+        [
+          { path: `/category/${cat.id}`, name: cat.title, desc: cat.desc, isCategory: true },
+          ...cat.guides.map(g => ({
+            path: `/guide/${g.id}`,
+            name: g.title,
+            desc: g.symptom,
+          }))
+        ]
+      )
+    },
+    {
+      section: 'POS 정보',
+      pages: [
+        { path: '/info/store', name: '매장 정보 조회', desc: '매장명 → 매장코드 조회' },
+        { path: '/info/staff', name: '직원 정보 조회', desc: '이름 → 사번 조회' },
+      ]
+    },
+    {
+      section: '업무 도구',
+      pages: [
+        { path: '/cash-collection', name: '현금 수거 기록', desc: '밸류엑스 현금 수거 기록 입력' },
+        { path: '/repair-request', name: '수리 요청', desc: '장비 수리 요청 접수' },
+        { path: '/repair-confirm', name: '수리 현황', desc: '수리 요청 상태 확인 및 내보내기' },
+        { path: '/device-survey', name: '기기 설문', desc: '기기 설문 제출' },
+        { path: '/device-survey-result', name: '기기 설문 결과', desc: '기기 설문 결과 확인' },
+      ]
+    },
+    {
+      section: '관리자',
+      pages: [
+        { path: '/admin', name: '관리자 대시보드', desc: '매장 체크, 로그인 정보, 현금 수거, 조회수, 검색 로그, 공지사항, 사이트맵' },
+      ]
+    },
+  ]
+
+  const totalPages = sitePages.reduce((sum, s) => sum + s.pages.length, 0)
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h2 className="text-[16px] font-bold">사이트맵</h2>
+        <Badge variant="secondary" className="text-[12px]">총 {totalPages}개 페이지</Badge>
+      </div>
+
+      {sitePages.map(section => (
+        <Card key={section.section}>
+          <CardHeader className="pb-2 pt-4 px-4">
+            <CardTitle className="text-[14px] font-bold text-primary">{section.section}</CardTitle>
+          </CardHeader>
+          <CardContent className="px-4 pb-4">
+            <div className="space-y-1">
+              {section.pages.map(page => (
+                <a
+                  key={page.path}
+                  href={page.path}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={`flex items-start gap-3 rounded-lg px-3 py-2.5 transition-colors hover:bg-muted/50 group ${
+                    page.isCategory ? 'mt-2 first:mt-0' : ''
+                  }`}
+                >
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className={`text-[13px] font-semibold truncate ${page.isCategory ? 'text-foreground' : 'text-foreground/80'}`}>
+                        {!page.isCategory && <span className="text-muted-foreground mr-1.5">└</span>}
+                        {page.name}
+                      </span>
+                    </div>
+                    {page.desc && (
+                      <p className="text-[11px] text-muted-foreground mt-0.5 truncate">{page.desc}</p>
+                    )}
+                  </div>
+                  <span className="text-[11px] font-mono text-muted-foreground/60 shrink-0 mt-0.5 group-hover:text-primary transition-colors">
+                    {page.path}
+                  </span>
+                </a>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      ))}
     </div>
   )
 }
