@@ -16,6 +16,8 @@ export default function RepairRequestPage() {
   const [symptom, setSymptom] = useState('')
   const [photos, setPhotos] = useState([])
   const [previews, setPreviews] = useState([])
+  const [video, setVideo] = useState(null)
+  const [videoPreview, setVideoPreview] = useState(null)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [recentRecords, setRecentRecords] = useState([])
@@ -74,12 +76,31 @@ export default function RepairRequestPage() {
     setPreviews(prev => prev.filter((_, i) => i !== index))
   }
 
+  function handleVideoChange(e) {
+    const file = e.target.files[0]
+    if (!file) return
+    if (file.size > 100 * 1024 * 1024) {
+      alert('동영상은 100MB 이하만 첨부할 수 있습니다.')
+      return
+    }
+    if (videoPreview) URL.revokeObjectURL(videoPreview)
+    setVideo(file)
+    setVideoPreview(URL.createObjectURL(file))
+  }
+
+  function removeVideo() {
+    if (videoPreview) URL.revokeObjectURL(videoPreview)
+    setVideo(null)
+    setVideoPreview(null)
+  }
+
   async function handleSubmit() {
     if (!selectedStore || !selectedStaff || !symptom.trim()) return
     setSaving(true)
 
     // 사진 업로드
     const uploadedUrls = []
+    let photoFailed = 0
     for (const file of photos) {
       const ext = file.name.split('.').pop()
       const path = `${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`
@@ -91,15 +112,43 @@ export default function RepairRequestPage() {
           .from('repair-photos')
           .getPublicUrl(path)
         uploadedUrls.push(urlData.publicUrl)
+      } else {
+        photoFailed++
+      }
+    }
+    if (photoFailed > 0) {
+      alert(`사진 ${photoFailed}장 업로드에 실패했습니다. 나머지는 정상 첨부됩니다.`)
+    }
+
+    // 동영상 업로드
+    let videoUrl = null
+    if (video) {
+      const ext = video.name.split('.').pop()
+      const path = `video_${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`
+      const { error } = await supabase.storage
+        .from('repair-photos')
+        .upload(path, video)
+      if (!error) {
+        const { data: urlData } = supabase.storage
+          .from('repair-photos')
+          .getPublicUrl(path)
+        videoUrl = urlData.publicUrl
       }
     }
 
-    await supabase.from('repair_requests').insert({
+    const { error: insertError } = await supabase.from('repair_requests').insert({
       store_id: selectedStore.id,
       reporter_name: selectedStaff.name,
       symptom: symptom.trim(),
       photo_urls: uploadedUrls,
+      video_url: videoUrl,
     })
+
+    if (insertError) {
+      setSaving(false)
+      alert('접수에 실패했습니다. 다시 시도해주세요.')
+      return
+    }
 
     setSaving(false)
     setSaved(true)
@@ -109,6 +158,7 @@ export default function RepairRequestPage() {
     setPhotos([])
     previews.forEach(p => URL.revokeObjectURL(p))
     setPreviews([])
+    removeVideo()
     setStoreSearch('')
     setStaffSearch('')
     fetchRecent()
@@ -267,10 +317,10 @@ export default function RepairRequestPage() {
               />
             </div>
 
-            {/* 사진 첨부 */}
+            {/* 사진/동영상 첨부 */}
             <div>
               <label className="text-[13px] font-bold text-foreground mb-2 block">
-                사진 첨부 <span className="font-normal text-muted-foreground">({photos.length}/5)</span>
+                사진/동영상 첨부 <span className="font-normal text-muted-foreground">(사진 {photos.length}/5, 동영상 {video ? 1 : 0}/1)</span>
               </label>
 
               <div className="flex gap-2 flex-wrap">
@@ -286,18 +336,53 @@ export default function RepairRequestPage() {
                   </div>
                 ))}
 
+                {videoPreview && (
+                  <div className="relative w-20 h-20 rounded-xl overflow-hidden border border-border/40 bg-black">
+                    <video src={videoPreview} className="w-full h-full object-cover" />
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <div className="w-7 h-7 rounded-full bg-white/80 flex items-center justify-center">
+                        <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                          <path d="M3 1.5L10.5 6L3 10.5V1.5Z" fill="#333" />
+                        </svg>
+                      </div>
+                    </div>
+                    <button
+                      onClick={removeVideo}
+                      className="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/60 text-white flex items-center justify-center text-[11px]"
+                    >
+                      &times;
+                    </button>
+                  </div>
+                )}
+
                 {photos.length < 5 && (
                   <label className="w-20 h-20 rounded-xl border-2 border-dashed border-border/60 flex flex-col items-center justify-center cursor-pointer hover:border-primary/40 transition-colors">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" className="text-muted-foreground">
                       <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
                       <circle cx="12" cy="13" r="4" stroke="currentColor" strokeWidth="1.5"/>
                     </svg>
-                    <span className="text-[10px] text-muted-foreground mt-1">추가</span>
+                    <span className="text-[10px] text-muted-foreground mt-1">사진</span>
                     <input
                       type="file"
                       accept="image/*"
                       multiple
                       onChange={handlePhotoChange}
+                      className="hidden"
+                    />
+                  </label>
+                )}
+
+                {!video && (
+                  <label className="w-20 h-20 rounded-xl border-2 border-dashed border-border/60 flex flex-col items-center justify-center cursor-pointer hover:border-primary/40 transition-colors">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" className="text-muted-foreground">
+                      <polygon points="23 7 16 12 23 17 23 7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                      <rect x="1" y="5" width="15" height="14" rx="2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                    <span className="text-[10px] text-muted-foreground mt-1">동영상</span>
+                    <input
+                      type="file"
+                      accept="video/*"
+                      onChange={handleVideoChange}
                       className="hidden"
                     />
                   </label>
@@ -365,6 +450,14 @@ export default function RepairRequestPage() {
                               <span className="text-[12px] text-muted-foreground">|</span>
                               <span className="text-[11px] text-primary font-semibold">
                                 사진 {r.photo_urls.length}장
+                              </span>
+                            </>
+                          )}
+                          {r.video_url && (
+                            <>
+                              <span className="text-[12px] text-muted-foreground">|</span>
+                              <span className="text-[11px] text-primary font-semibold">
+                                동영상 1개
                               </span>
                             </>
                           )}

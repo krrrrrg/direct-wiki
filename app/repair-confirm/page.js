@@ -22,6 +22,7 @@ const STATUS_COLOR = {
 }
 
 export default function RepairConfirmPage() {
+  const [allRecords, setAllRecords] = useState([])
   const [records, setRecords] = useState([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -32,17 +33,14 @@ export default function RepairConfirmPage() {
   const exportRef = useRef(null)
 
   const fetchRecords = useCallback(async () => {
-    let query = supabase
+    const { data } = await supabase
       .from('repair_requests')
       .select('*, stores(name, code, region)')
       .order('created_at', { ascending: false })
 
-    if (statusFilter !== 'all') {
-      query = query.eq('status', statusFilter)
-    }
-
-    const { data } = await query
-    setRecords(data || [])
+    const all = data || []
+    setAllRecords(all)
+    setRecords(statusFilter === 'all' ? all : all.filter(r => r.status === statusFilter))
     setLoading(false)
   }, [statusFilter])
 
@@ -99,7 +97,9 @@ export default function RepairConfirmPage() {
   async function updateStatus(id, newStatus) {
     setUpdating(id)
     await supabase.from('repair_requests').update({ status: newStatus }).eq('id', id)
-    setRecords(prev => prev.map(r => r.id === id ? { ...r, status: newStatus } : r))
+    const updater = prev => prev.map(r => r.id === id ? { ...r, status: newStatus } : r)
+    setAllRecords(updater)
+    setRecords(updater)
     setUpdating(null)
   }
 
@@ -113,10 +113,10 @@ export default function RepairConfirmPage() {
     : records
 
   const counts = {
-    all: records.length,
-    pending: records.filter(r => r.status === 'pending').length,
-    in_progress: records.filter(r => r.status === 'in_progress').length,
-    completed: records.filter(r => r.status === 'completed').length,
+    all: allRecords.length,
+    pending: allRecords.filter(r => r.status === 'pending').length,
+    in_progress: allRecords.filter(r => r.status === 'in_progress').length,
+    completed: allRecords.filter(r => r.status === 'completed').length,
   }
 
   return (
@@ -230,6 +230,12 @@ export default function RepairConfirmPage() {
                                 <span className="text-[11px] text-primary font-semibold">사진 {r.photo_urls.length}</span>
                               </>
                             )}
+                            {r.video_url && (
+                              <>
+                                <span className="text-[12px] text-muted-foreground">|</span>
+                                <span className="text-[11px] text-primary font-semibold">동영상</span>
+                              </>
+                            )}
                           </div>
                         </div>
                         <svg
@@ -260,18 +266,32 @@ export default function RepairConfirmPage() {
                           <p className="text-[14px] text-foreground leading-relaxed whitespace-pre-wrap">{r.symptom}</p>
                         </div>
 
-                        {/* 첨부 사진 */}
-                        {r.photo_urls?.length > 0 && (
+                        {/* 첨부 사진/동영상 */}
+                        {(r.photo_urls?.length > 0 || r.video_url) && (
                           <div>
-                            <p className="text-[12px] font-bold text-muted-foreground mb-2">첨부 사진</p>
+                            <p className="text-[12px] font-bold text-muted-foreground mb-2">첨부 파일</p>
                             <div className="flex gap-2 flex-wrap">
-                              {r.photo_urls.map((url, i) => (
+                              {r.photo_urls?.map((url, i) => (
                                 <a key={i} href={url} target="_blank" rel="noopener noreferrer" className="block">
                                   <div className="w-24 h-24 rounded-xl overflow-hidden border border-border/40 hover:opacity-80 transition-opacity">
                                     <img src={url} alt={`사진 ${i + 1}`} className="w-full h-full object-cover" />
                                   </div>
                                 </a>
                               ))}
+                              {r.video_url && (
+                                <a href={r.video_url} target="_blank" rel="noopener noreferrer" className="block">
+                                  <div className="relative w-24 h-24 rounded-xl overflow-hidden border border-border/40 hover:opacity-80 transition-opacity bg-black">
+                                    <video src={r.video_url} className="w-full h-full object-cover" />
+                                    <div className="absolute inset-0 flex items-center justify-center">
+                                      <div className="w-9 h-9 rounded-full bg-white/80 flex items-center justify-center">
+                                        <svg width="14" height="14" viewBox="0 0 12 12" fill="none">
+                                          <path d="M3 1.5L10.5 6L3 10.5V1.5Z" fill="#333" />
+                                        </svg>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </a>
+                              )}
                             </div>
                           </div>
                         )}
