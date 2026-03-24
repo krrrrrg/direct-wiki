@@ -50,6 +50,33 @@ export const CATEGORY_ICONS = {
       <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/>
     </svg>
   ),
+  payment: (
+    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" className="text-primary">
+      <rect x="1" y="4" width="22" height="16" rx="2" stroke="currentColor" strokeWidth="1.8"/>
+      <path d="M1 10H23" stroke="currentColor" strokeWidth="1.8"/>
+      <path d="M5 15H9" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+      <path d="M13 15H15" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+    </svg>
+  ),
+  hakacare: (
+    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" className="text-primary">
+      <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78L12 21.23l8.84-8.84a5.5 5.5 0 0 0 0-7.78z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/>
+    </svg>
+  ),
+  registration: (
+    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" className="text-primary">
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/>
+      <path d="M14 2v6h6" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/>
+      <path d="M9 15h6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+      <path d="M9 11h6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+    </svg>
+  ),
+  inquiry: (
+    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" className="text-primary">
+      <circle cx="11" cy="11" r="8" stroke="currentColor" strokeWidth="1.8"/>
+      <path d="M21 21L16.65 16.65" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+    </svg>
+  ),
 }
 
 export const INFO_ICONS = {
