@@ -226,6 +226,14 @@ export default function RepairRequestPage() {
                   <Input
                     value={storeSearch}
                     onChange={e => setStoreSearch(e.target.value)}
+                    onBlur={() => {
+                      setTimeout(() => {
+                        if (filteredStores.length > 0 && !selectedStore) {
+                          setSelectedStore(filteredStores[0])
+                          setStoreSearch(filteredStores[0].name)
+                        }
+                      }, 150)
+                    }}
                     placeholder="매장명 또는 매장코드 검색"
                     className="h-11 text-[16px] rounded-xl"
                   />
@@ -276,6 +284,14 @@ export default function RepairRequestPage() {
                   <Input
                     value={staffSearch}
                     onChange={e => setStaffSearch(e.target.value)}
+                    onBlur={() => {
+                      setTimeout(() => {
+                        if (filteredStaff.length > 0 && !selectedStaff) {
+                          setSelectedStaff(filteredStaff[0])
+                          setStaffSearch(filteredStaff[0].name)
+                        }
+                      }, 150)
+                    }}
                     placeholder="이름 또는 사번으로 검색"
                     className="h-11 text-[16px] rounded-xl"
                   />
