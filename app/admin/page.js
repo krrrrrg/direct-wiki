@@ -150,18 +150,34 @@ function NoticeManageTab() {
     if (!title.trim()) return
     setSaving(true)
 
-    // 기존 활성 공지를 모두 비활성화
-    await supabase
-      .from('notices')
-      .update({ is_active: false })
-      .eq('is_active', true)
-
-    // 새 공지 삽입
-    await supabase.from('notices').insert({
+    // 새 공지 먼저 삽입
+    const { error } = await supabase.from('notices').insert({
       title: title.trim(),
       guide_id: guideId || null,
       is_active: true,
     })
+
+    if (error) {
+      setSaving(false)
+      alert('공지 등록에 실패했습니다.')
+      return
+    }
+
+    // 성공 후 기존 활성 공지를 비활성화 (방금 넣은 건 제외)
+    const { data: latest } = await supabase
+      .from('notices')
+      .select('id')
+      .eq('is_active', true)
+      .order('created_at', { ascending: false })
+      .limit(1)
+
+    if (latest?.length > 0) {
+      await supabase
+        .from('notices')
+        .update({ is_active: false })
+        .eq('is_active', true)
+        .neq('id', latest[0].id)
+    }
 
     setTitle('')
     setGuideId('')
@@ -370,7 +386,11 @@ function CashCollectionTab() {
 
   async function deleteRecord(id) {
     if (!confirm('이 수거 기록을 삭제할까요?')) return
-    await supabase.from('cash_collections').delete().eq('id', id)
+    const { error } = await supabase.from('cash_collections').delete().eq('id', id)
+    if (error) {
+      alert('삭제에 실패했습니다.')
+      return
+    }
     fetchData()
   }
 
@@ -852,6 +872,11 @@ function LoginInfoTab() {
 
   async function addItem() {
     if (!newId.trim() || !newName.trim()) return
+    const duplicate = loginInfos.find(l => l.employee_id === newId.trim())
+    if (duplicate) {
+      alert(`이미 등록된 사번입니다. (${duplicate.name})`)
+      return
+    }
     await supabase.from('login_info').insert({
       employee_id: newId.trim(),
       name: newName.trim(),
@@ -1092,22 +1117,10 @@ function SearchLogTab() {
         .select('*', { count: 'exact', head: true })
       setTotalCount(count || 0)
 
-      // 인기 검색어 (수동 집계)
-      const { data: allLogs } = await supabase
-        .from('search_logs')
-        .select('query')
-      if (allLogs) {
-        const freq = {}
-        for (const l of allLogs) {
-          const q = l.query.toLowerCase()
-          freq[q] = (freq[q] || 0) + 1
-        }
-        const sorted = Object.entries(freq)
-          .sort((a, b) => b[1] - a[1])
-          .slice(0, 20)
-          .map(([query, count]) => ({ query, count }))
-        setTopQueries(sorted)
-      }
+      // 인기 검색어 (DB에서 집계)
+      const { data: topData } = await supabase
+        .rpc('get_top_search_queries', { limit_count: 20 })
+      setTopQueries(topData || [])
       setLoading(false)
     }
     fetchLogs()
