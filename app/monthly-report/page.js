@@ -67,18 +67,29 @@ export default function MonthlyReportPage() {
     setSearched(true)
     setExpandedStore(null)
 
-    let query = supabase
-      .from('monthly_sales')
-      .select('store_name, sale_month, card_amount, cash_no_receipt, cash_receipt, transfer_amount, expense_amount')
-      .gte('sale_month', startMonth)
-      .lte('sale_month', endMonth)
-      .order('sale_month', { ascending: true })
-      .limit(10000)
-    if (selectedStore) query = query.eq('store_name', selectedStore.store_name)
+    // 페이지네이션으로 전체 가져오기
+    const PAGE = 1000
+    let allData = []
+    let from = 0
+    while (true) {
+      let query = supabase
+        .from('monthly_sales')
+        .select('store_name, sale_month, card_amount, cash_no_receipt, cash_receipt, transfer_amount, expense_amount')
+        .gte('sale_month', startMonth)
+        .lte('sale_month', endMonth)
+        .order('sale_month', { ascending: true })
+        .range(from, from + PAGE - 1)
+      if (selectedStore) query = query.eq('store_name', selectedStore.store_name)
+      const { data: chunk, error } = await query
+      if (error) { console.error(error); break }
+      if (!chunk || chunk.length === 0) break
+      allData = allData.concat(chunk)
+      if (chunk.length < PAGE) break
+      from += PAGE
+    }
 
-    const { data, error } = await query
-    if (error) { console.error(error); setLoading(false); return }
-    if (data) {
+    const data = allData
+    if (data.length > 0) {
       setRawData(data)
       const grouped = new Map()
       data.forEach(d => {

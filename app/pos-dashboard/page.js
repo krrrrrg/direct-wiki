@@ -127,6 +127,26 @@ export default function PosDashboardPage() {
     setStoreSearch('')
   }
 
+  // 페이지네이션으로 전체 데이터 가져오기
+  async function fetchAll(table, select, filters) {
+    const PAGE = 1000
+    let allData = []
+    let from = 0
+    while (true) {
+      let query = supabase.from(table).select(select)
+      filters.forEach(f => { query = query[f.op](f.col, f.val) })
+      query = query.order(filters[0].col.includes('date') ? 'sale_date' : 'sale_month', { ascending: true })
+        .range(from, from + PAGE - 1)
+      const { data, error } = await query
+      if (error) { console.error(error); break }
+      if (!data || data.length === 0) break
+      allData = allData.concat(data)
+      if (data.length < PAGE) break
+      from += PAGE
+    }
+    return allData
+  }
+
   // 조회
   const handleSearch = useCallback(async () => {
     setLoading(true)
@@ -135,18 +155,14 @@ export default function PosDashboardPage() {
 
     if (tab === 'daily') {
       if (!startDate || !endDate) { setLoading(false); return }
-      let query = supabase
-        .from('daily_sales')
-        .select('store_name, sale_date, sale_amount')
-        .gte('sale_date', startDate)
-        .lte('sale_date', endDate)
-        .order('sale_date', { ascending: true })
-        .limit(10000)
-      if (selectedStore) query = query.eq('store_name', selectedStore.store_name)
+      const filters = [
+        { op: 'gte', col: 'sale_date', val: startDate },
+        { op: 'lte', col: 'sale_date', val: endDate },
+      ]
+      if (selectedStore) filters.push({ op: 'eq', col: 'store_name', val: selectedStore.store_name })
 
-      const { data, error } = await query
-      if (error) { console.error(error); setLoading(false); return }
-      if (data) {
+      const data = await fetchAll('daily_sales', 'store_name, sale_date, sale_amount', filters)
+      if (data.length > 0) {
         setRawData(data)
         const grouped = new Map()
         data.forEach(d => {
@@ -159,18 +175,14 @@ export default function PosDashboardPage() {
       }
     } else {
       if (!startMonth || !endMonth) { setLoading(false); return }
-      let query = supabase
-        .from('monthly_sales')
-        .select('store_name, sale_month, card_amount, cash_no_receipt, cash_receipt, transfer_amount, expense_amount')
-        .gte('sale_month', startMonth)
-        .lte('sale_month', endMonth)
-        .order('sale_month', { ascending: true })
-        .limit(10000)
-      if (selectedStore) query = query.eq('store_name', selectedStore.store_name)
+      const filters = [
+        { op: 'gte', col: 'sale_month', val: startMonth },
+        { op: 'lte', col: 'sale_month', val: endMonth },
+      ]
+      if (selectedStore) filters.push({ op: 'eq', col: 'store_name', val: selectedStore.store_name })
 
-      const { data, error } = await query
-      if (error) { console.error(error); setLoading(false); return }
-      if (data) {
+      const data = await fetchAll('monthly_sales', 'store_name, sale_month, card_amount, cash_no_receipt, cash_receipt, transfer_amount, expense_amount', filters)
+      if (data.length > 0) {
         setRawData(data)
         const grouped = new Map()
         data.forEach(d => {
