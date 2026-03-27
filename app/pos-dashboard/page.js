@@ -211,9 +211,7 @@ export default function PosDashboardPage() {
         .filter(d => d.store_name === storeName)
         .map(d => ({
           month: d.sale_month.slice(5) + '월',
-          카드: d.card_amount,
-          현금: d.cash_no_receipt + d.cash_receipt,
-          이체: d.transfer_amount,
+          총액: d.card_amount + d.cash_no_receipt + d.cash_receipt + d.transfer_amount,
         }))
     }
   }
@@ -509,9 +507,7 @@ export default function PosDashboardPage() {
                                   <XAxis dataKey="month" tick={{ fontSize: 11 }} />
                                   <YAxis tick={{ fontSize: 10 }} tickFormatter={v => (v / 10000).toFixed(0) + '만'} width={40} />
                                   <Tooltip formatter={chartTooltipFmt} />
-                                  <Bar dataKey="카드" fill="#4ECDC4" radius={[4, 4, 0, 0]} />
-                                  <Bar dataKey="현금" fill="#4ECDC4" fillOpacity={0.5} radius={[4, 4, 0, 0]} />
-                                  <Bar dataKey="이체" fill="#4ECDC4" fillOpacity={0.25} radius={[4, 4, 0, 0]} />
+                                  <Bar dataKey="총액" fill="#4ECDC4" radius={[4, 4, 0, 0]} />
                                 </BarChart>
                               )}
                             </ResponsiveContainer>
