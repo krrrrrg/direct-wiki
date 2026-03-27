@@ -128,7 +128,7 @@ export default function PosDashboardPage() {
       if (!startMonth || !endMonth) { setLoading(false); return }
       let query = supabase
         .from('monthly_sales')
-        .select('store_name, store_code, sale_month, card_amount, cash_amount')
+        .select('store_name, store_code, sale_month, card_amount, cash_no_receipt, cash_receipt, transfer_amount, cash_receipt_transfer, expense_amount')
         .gte('sale_month', startMonth)
         .lte('sale_month', endMonth)
         .order('sale_month', { ascending: true })
@@ -139,15 +139,23 @@ export default function PosDashboardPage() {
         const grouped = new Map()
         data.forEach(d => {
           if (!grouped.has(d.store_name)) {
-            grouped.set(d.store_name, { store_name: d.store_name, store_code: d.store_code, total_card: 0, total_cash: 0 })
+            grouped.set(d.store_name, {
+              store_name: d.store_name, store_code: d.store_code,
+              total_card: 0, total_cash_no_receipt: 0, total_cash_receipt: 0,
+              total_transfer: 0, total_cash_receipt_transfer: 0, total_expense: 0,
+            })
           }
           const g = grouped.get(d.store_name)
           g.total_card += d.card_amount
-          g.total_cash += d.cash_amount
+          g.total_cash_no_receipt += d.cash_no_receipt
+          g.total_cash_receipt += d.cash_receipt
+          g.total_transfer += d.transfer_amount
+          g.total_cash_receipt_transfer += d.cash_receipt_transfer
+          g.total_expense += d.expense_amount
         })
         setSalesData(
           Array.from(grouped.values())
-            .map(d => ({ ...d, total_amount: d.total_card + d.total_cash }))
+            .map(d => ({ ...d, total_amount: d.total_card + d.total_cash_no_receipt + d.total_cash_receipt + d.total_transfer }))
             .sort((a, b) => b.total_amount - a.total_amount)
         )
       }
@@ -158,7 +166,11 @@ export default function PosDashboardPage() {
 
   const totalAmount = useMemo(() => salesData.reduce((s, d) => s + (d.total_amount || 0), 0), [salesData])
   const totalCard = useMemo(() => salesData.reduce((s, d) => s + (d.total_card || 0), 0), [salesData])
-  const totalCash = useMemo(() => salesData.reduce((s, d) => s + (d.total_cash || 0), 0), [salesData])
+  const totalCashNoReceipt = useMemo(() => salesData.reduce((s, d) => s + (d.total_cash_no_receipt || 0), 0), [salesData])
+  const totalCashReceipt = useMemo(() => salesData.reduce((s, d) => s + (d.total_cash_receipt || 0), 0), [salesData])
+  const totalTransfer = useMemo(() => salesData.reduce((s, d) => s + (d.total_transfer || 0), 0), [salesData])
+  const totalCashReceiptTransfer = useMemo(() => salesData.reduce((s, d) => s + (d.total_cash_receipt_transfer || 0), 0), [salesData])
+  const totalExpense = useMemo(() => salesData.reduce((s, d) => s + (d.total_expense || 0), 0), [salesData])
 
   const fmt = (n) => new Intl.NumberFormat('ko-KR').format(n)
 
@@ -312,7 +324,7 @@ export default function PosDashboardPage() {
             </div>
 
             {salesData.length > 0 && (
-              <Card className="rounded-2xl border-border/40 shadow-sm overflow-hidden">
+              <Card className={`rounded-2xl border-border/40 shadow-sm ${tab === 'monthly' ? 'overflow-x-auto' : 'overflow-hidden'}`}>
                 {/* 헤더 */}
                 {tab === 'daily' ? (
                   <div className="bg-primary/5 border-b border-primary/10 px-4 py-3 flex items-center">
@@ -321,12 +333,14 @@ export default function PosDashboardPage() {
                     <span className="text-[12px] font-bold text-primary text-right w-[100px] shrink-0">판매금액</span>
                   </div>
                 ) : (
-                  <div className="bg-primary/5 border-b border-primary/10 px-4 py-3 flex items-center">
-                    <span className="text-[12px] font-bold text-primary w-[56px] shrink-0">코드</span>
-                    <span className="text-[12px] font-bold text-primary flex-1">매장명</span>
-                    <span className="text-[12px] font-bold text-primary text-right w-[80px] shrink-0">카드</span>
-                    <span className="text-[12px] font-bold text-primary text-right w-[80px] shrink-0">현금</span>
-                    <span className="text-[12px] font-bold text-primary text-right w-[90px] shrink-0">합계</span>
+                  <div className="bg-primary/5 border-b border-primary/10 px-4 py-3 flex items-center min-w-[700px]">
+                    <span className="text-[11px] font-bold text-primary flex-1 min-w-[100px]">매장명</span>
+                    <span className="text-[11px] font-bold text-primary text-right w-[72px] shrink-0">카드</span>
+                    <span className="text-[11px] font-bold text-primary text-right w-[72px] shrink-0">현금(무)</span>
+                    <span className="text-[11px] font-bold text-primary text-right w-[72px] shrink-0">현금영수증</span>
+                    <span className="text-[11px] font-bold text-primary text-right w-[60px] shrink-0">이체</span>
+                    <span className="text-[11px] font-bold text-primary text-right w-[72px] shrink-0">영수증-이체</span>
+                    <span className="text-[11px] font-bold text-primary text-right w-[60px] shrink-0">비용</span>
                   </div>
                 )}
 
@@ -348,23 +362,29 @@ export default function PosDashboardPage() {
                           </div>
                         </>
                       ) : (
-                        <>
-                          <div className="w-[56px] shrink-0">
-                            <span className="text-[12px] text-muted-foreground font-mono">{d.store_code || '-'}</span>
+                        <div className="flex items-center min-w-[700px] w-full">
+                          <div className="flex-1 min-w-[100px]">
+                            <p className="text-[12px] font-medium text-foreground truncate">{d.store_name}</p>
                           </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-[13px] font-medium text-foreground truncate">{d.store_name}</p>
+                          <div className="w-[72px] shrink-0 text-right">
+                            <p className="text-[12px] text-foreground">{fmt(d.total_card)}</p>
                           </div>
-                          <div className="w-[80px] shrink-0 text-right">
-                            <p className="text-[13px] text-foreground">{fmt(d.total_card)}</p>
+                          <div className="w-[72px] shrink-0 text-right">
+                            <p className="text-[12px] text-foreground">{fmt(d.total_cash_no_receipt)}</p>
                           </div>
-                          <div className="w-[80px] shrink-0 text-right">
-                            <p className="text-[13px] text-foreground">{fmt(d.total_cash)}</p>
+                          <div className="w-[72px] shrink-0 text-right">
+                            <p className="text-[12px] text-foreground">{fmt(d.total_cash_receipt)}</p>
                           </div>
-                          <div className="w-[90px] shrink-0 text-right">
-                            <p className="text-[13px] font-bold text-foreground">{fmt(d.total_amount)}</p>
+                          <div className="w-[60px] shrink-0 text-right">
+                            <p className="text-[12px] text-foreground">{fmt(d.total_transfer)}</p>
                           </div>
-                        </>
+                          <div className="w-[72px] shrink-0 text-right">
+                            <p className="text-[12px] text-foreground">{fmt(d.total_cash_receipt_transfer)}</p>
+                          </div>
+                          <div className="w-[60px] shrink-0 text-right">
+                            <p className="text-[12px] text-foreground">{fmt(d.total_expense)}</p>
+                          </div>
+                        </div>
                       )}
                     </div>
                   ))}
@@ -372,12 +392,14 @@ export default function PosDashboardPage() {
 
                 {/* 월별 합계행 */}
                 {tab === 'monthly' && (
-                  <div className="bg-primary/5 border-t border-primary/10 px-4 py-3 flex items-center">
-                    <div className="w-[56px] shrink-0" />
-                    <div className="flex-1"><p className="text-[13px] font-bold text-primary">합계</p></div>
-                    <div className="w-[80px] shrink-0 text-right"><p className="text-[13px] font-bold text-primary">{fmt(totalCard)}</p></div>
-                    <div className="w-[80px] shrink-0 text-right"><p className="text-[13px] font-bold text-primary">{fmt(totalCash)}</p></div>
-                    <div className="w-[90px] shrink-0 text-right"><p className="text-[13px] font-bold text-primary">{fmt(totalAmount)}</p></div>
+                  <div className="bg-primary/5 border-t border-primary/10 px-4 py-3 flex items-center min-w-[700px]">
+                    <div className="flex-1 min-w-[100px]"><p className="text-[11px] font-bold text-primary">합계</p></div>
+                    <div className="w-[72px] shrink-0 text-right"><p className="text-[11px] font-bold text-primary">{fmt(totalCard)}</p></div>
+                    <div className="w-[72px] shrink-0 text-right"><p className="text-[11px] font-bold text-primary">{fmt(totalCashNoReceipt)}</p></div>
+                    <div className="w-[72px] shrink-0 text-right"><p className="text-[11px] font-bold text-primary">{fmt(totalCashReceipt)}</p></div>
+                    <div className="w-[60px] shrink-0 text-right"><p className="text-[11px] font-bold text-primary">{fmt(totalTransfer)}</p></div>
+                    <div className="w-[72px] shrink-0 text-right"><p className="text-[11px] font-bold text-primary">{fmt(totalCashReceiptTransfer)}</p></div>
+                    <div className="w-[60px] shrink-0 text-right"><p className="text-[11px] font-bold text-primary">{fmt(totalExpense)}</p></div>
                   </div>
                 )}
               </Card>
