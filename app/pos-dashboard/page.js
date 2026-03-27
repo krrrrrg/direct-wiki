@@ -151,7 +151,7 @@ export default function PosDashboardPage() {
       if (!startMonth || !endMonth) { setLoading(false); return }
       let query = supabase
         .from('monthly_sales')
-        .select('store_name, sale_month, card_amount, cash_no_receipt, cash_receipt, transfer_amount, cash_receipt_transfer, expense_amount')
+        .select('store_name, sale_month, card_amount, cash_no_receipt, cash_receipt, transfer_amount, expense_amount')
         .gte('sale_month', startMonth)
         .lte('sale_month', endMonth)
         .order('sale_month', { ascending: true })
@@ -165,7 +165,7 @@ export default function PosDashboardPage() {
             grouped.set(d.store_name, {
               store_name: d.store_name,
               total_card: 0, total_cash_no_receipt: 0, total_cash_receipt: 0,
-              total_transfer: 0, total_cash_receipt_transfer: 0, total_expense: 0,
+              total_transfer: 0, total_expense: 0,
             })
           }
           const g = grouped.get(d.store_name)
@@ -173,7 +173,6 @@ export default function PosDashboardPage() {
           g.total_cash_no_receipt += d.cash_no_receipt
           g.total_cash_receipt += d.cash_receipt
           g.total_transfer += d.transfer_amount
-          g.total_cash_receipt_transfer += d.cash_receipt_transfer
           g.total_expense += d.expense_amount
         })
         setSalesData(
@@ -192,7 +191,6 @@ export default function PosDashboardPage() {
   const totalCashNoReceipt = useMemo(() => salesData.reduce((s, d) => s + (d.total_cash_no_receipt || 0), 0), [salesData])
   const totalCashReceipt = useMemo(() => salesData.reduce((s, d) => s + (d.total_cash_receipt || 0), 0), [salesData])
   const totalTransfer = useMemo(() => salesData.reduce((s, d) => s + (d.total_transfer || 0), 0), [salesData])
-  const totalCashReceiptTransfer = useMemo(() => salesData.reduce((s, d) => s + (d.total_cash_receipt_transfer || 0), 0), [salesData])
   const totalExpense = useMemo(() => salesData.reduce((s, d) => s + (d.total_expense || 0), 0), [salesData])
 
   const fmt = (n) => new Intl.NumberFormat('ko-KR').format(n)
@@ -350,13 +348,12 @@ export default function PosDashboardPage() {
                     <span className="text-[12px] font-bold text-primary text-right w-[110px] shrink-0">판매금액</span>
                   </div>
                 ) : (
-                  <div className="bg-primary/5 border-b border-primary/10 px-4 py-3 flex items-center min-w-[780px]">
+                  <div className="bg-primary/5 border-b border-primary/10 px-4 py-3 flex items-center min-w-[680px]">
                     <span className="text-[11px] font-bold text-primary w-[120px] shrink-0">매장명</span>
                     <span className="text-[11px] font-bold text-primary text-right w-[90px] shrink-0">카드</span>
                     <span className="text-[11px] font-bold text-primary text-right w-[90px] shrink-0">현금(무)</span>
                     <span className="text-[11px] font-bold text-primary text-right w-[90px] shrink-0">현금영수증</span>
                     <span className="text-[11px] font-bold text-primary text-right w-[90px] shrink-0">이체</span>
-                    <span className="text-[11px] font-bold text-primary text-right w-[90px] shrink-0">영수증-이체</span>
                     <span className="text-[11px] font-bold text-primary text-right w-[90px] shrink-0">비용</span>
                   </div>
                 )}
@@ -364,7 +361,7 @@ export default function PosDashboardPage() {
                 {/* 데이터 행 */}
                 <div className="divide-y divide-border/30">
                   {salesData.map((d, i) => (
-                    <div key={d.store_name} className={`px-4 py-3 flex items-center hover:bg-secondary/30 transition-colors ${tab === 'monthly' ? 'min-w-[780px]' : ''}`}>
+                    <div key={d.store_name} className={`px-4 py-3 flex items-center hover:bg-secondary/30 transition-colors ${tab === 'monthly' ? 'min-w-[680px]' : ''}`}>
                       {tab === 'daily' ? (
                         <>
                           <div className="w-[32px] shrink-0 text-center">
@@ -395,9 +392,6 @@ export default function PosDashboardPage() {
                             <p className="text-[12px] text-foreground">{fmt(d.total_transfer)}</p>
                           </div>
                           <div className="w-[90px] shrink-0 text-right">
-                            <p className="text-[12px] text-foreground">{fmt(d.total_cash_receipt_transfer)}</p>
-                          </div>
-                          <div className="w-[90px] shrink-0 text-right">
                             <p className="text-[12px] text-foreground">{fmt(d.total_expense)}</p>
                           </div>
                         </div>
@@ -417,13 +411,12 @@ export default function PosDashboardPage() {
 
                 {/* 월별 합계행 */}
                 {tab === 'monthly' && (
-                  <div className="bg-primary/5 border-t border-primary/10 px-4 py-3 flex items-center min-w-[780px]">
+                  <div className="bg-primary/5 border-t border-primary/10 px-4 py-3 flex items-center min-w-[680px]">
                     <div className="w-[120px] shrink-0"><p className="text-[11px] font-bold text-primary">합계</p></div>
                     <div className="w-[90px] shrink-0 text-right"><p className="text-[11px] font-bold text-primary">{fmt(totalCard)}</p></div>
                     <div className="w-[90px] shrink-0 text-right"><p className="text-[11px] font-bold text-primary">{fmt(totalCashNoReceipt)}</p></div>
                     <div className="w-[90px] shrink-0 text-right"><p className="text-[11px] font-bold text-primary">{fmt(totalCashReceipt)}</p></div>
                     <div className="w-[90px] shrink-0 text-right"><p className="text-[11px] font-bold text-primary">{fmt(totalTransfer)}</p></div>
-                    <div className="w-[90px] shrink-0 text-right"><p className="text-[11px] font-bold text-primary">{fmt(totalCashReceiptTransfer)}</p></div>
                     <div className="w-[90px] shrink-0 text-right"><p className="text-[11px] font-bold text-primary">{fmt(totalExpense)}</p></div>
                   </div>
                 )}
