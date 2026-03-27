@@ -7,15 +7,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Header } from '../../components/shared'
 import dynamic from 'next/dynamic'
 
-const ResponsiveContainer = dynamic(() => import('recharts').then(m => m.ResponsiveContainer), { ssr: false })
-const LineChart = dynamic(() => import('recharts').then(m => m.LineChart), { ssr: false })
-const Line = dynamic(() => import('recharts').then(m => m.Line), { ssr: false })
-const BarChart = dynamic(() => import('recharts').then(m => m.BarChart), { ssr: false })
-const Bar = dynamic(() => import('recharts').then(m => m.Bar), { ssr: false })
-const XAxis = dynamic(() => import('recharts').then(m => m.XAxis), { ssr: false })
-const YAxis = dynamic(() => import('recharts').then(m => m.YAxis), { ssr: false })
-const Tooltip = dynamic(() => import('recharts').then(m => m.Tooltip), { ssr: false })
-const CartesianGrid = dynamic(() => import('recharts').then(m => m.CartesianGrid), { ssr: false })
+const StoreChartLazy = dynamic(() => import('./StoreChart'), { ssr: false })
 
 export default function PosDashboardPage() {
   const now = new Date()
@@ -231,8 +223,6 @@ export default function PosDashboardPage() {
       }
     } catch { return [] }
   }
-
-  const chartTooltipFmt = (v) => fmt(v) + '원'
 
   return (
     <main className="min-h-screen bg-background">
@@ -505,8 +495,7 @@ export default function PosDashboardPage() {
 
                       {/* 아코디언 차트 */}
                       {expandedStore === d.store_name && (
-                        <StoreChart storeName={d.store_name} tab={tab} getStoreChartData={getStoreChartData} chartTooltipFmt={chartTooltipFmt} fmt={fmt} />
-                      )}
+                        <StoreChartLazy storeName={d.store_name} tab={tab} chartData={getStoreChartData(d.store_name)} />
                       )}
                     </div>
                   ))}
@@ -553,39 +542,3 @@ export default function PosDashboardPage() {
   )
 }
 
-function StoreChart({ storeName, tab, getStoreChartData, chartTooltipFmt, fmt }) {
-  const chartData = getStoreChartData(storeName)
-  const dataLen = chartData.length
-  const xInterval = dataLen <= 7 ? 0 : dataLen <= 14 ? 1 : dataLen <= 31 ? 2 : Math.floor(dataLen / 10)
-  const showDots = dataLen <= 14
-  const chartH = dataLen <= 7 ? 160 : dataLen <= 31 ? 200 : 240
-
-  return (
-    <div className="px-4 py-4 bg-primary/3 border-t border-border/20">
-      <p className="text-[12px] font-bold text-foreground mb-3">
-        {storeName} {tab === 'daily' ? '일별 추이' : '월별 구성'} <span className="font-normal text-muted-foreground">({dataLen}건)</span>
-      </p>
-      <div style={{ height: chartH }}>
-        <ResponsiveContainer width="100%" height="100%">
-          {tab === 'daily' ? (
-            <LineChart data={chartData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f4" />
-              <XAxis dataKey="date" tick={{ fontSize: 9 }} interval={xInterval} angle={dataLen > 14 ? -45 : 0} textAnchor={dataLen > 14 ? 'end' : 'middle'} height={dataLen > 14 ? 50 : 30} />
-              <YAxis tick={{ fontSize: 10 }} tickFormatter={v => v >= 10000 ? (v / 10000).toFixed(0) + '만' : fmt(v)} width={45} />
-              <Tooltip formatter={chartTooltipFmt} />
-              <Line type="monotone" dataKey="amount" stroke="#4ECDC4" strokeWidth={2} dot={showDots ? { r: 3 } : false} activeDot={{ r: 5 }} />
-            </LineChart>
-          ) : (
-            <BarChart data={chartData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f4" />
-              <XAxis dataKey="month" tick={{ fontSize: 11 }} />
-              <YAxis tick={{ fontSize: 10 }} tickFormatter={v => v >= 10000 ? (v / 10000).toFixed(0) + '만' : fmt(v)} width={45} />
-              <Tooltip formatter={chartTooltipFmt} />
-              <Bar dataKey="총액" fill="#4ECDC4" radius={[4, 4, 0, 0]} />
-            </BarChart>
-          )}
-        </ResponsiveContainer>
-      </div>
-    </div>
-  )
-}
