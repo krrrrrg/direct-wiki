@@ -5,6 +5,7 @@ import { supabase } from '../../lib/supabase'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
 import { Header } from '../../components/shared'
+import { ResponsiveContainer, LineChart, Line, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts'
 
 export default function PosDashboardPage() {
   const now = new Date()
@@ -32,6 +33,8 @@ export default function PosDashboardPage() {
   const [loading, setLoading] = useState(false)
   const [searched, setSearched] = useState(false)
   const [activePreset, setActivePreset] = useState(null)
+  const [expandedStore, setExpandedStore] = useState(null)
+  const [rawData, setRawData] = useState([])
 
   // 일별 프리셋용 날짜 계산
   const yesterday = new Date(now)
@@ -125,6 +128,7 @@ export default function PosDashboardPage() {
   const handleSearch = useCallback(async () => {
     setLoading(true)
     setSearched(true)
+    setExpandedStore(null)
 
     if (tab === 'daily') {
       if (!startDate || !endDate) { setLoading(false); return }
@@ -138,6 +142,7 @@ export default function PosDashboardPage() {
 
       const { data } = await query
       if (data) {
+        setRawData(data)
         const grouped = new Map()
         data.forEach(d => {
           if (!grouped.has(d.store_name)) {
@@ -159,6 +164,7 @@ export default function PosDashboardPage() {
 
       const { data } = await query
       if (data) {
+        setRawData(data)
         const grouped = new Map()
         data.forEach(d => {
           if (!grouped.has(d.store_name)) {
@@ -194,6 +200,25 @@ export default function PosDashboardPage() {
   const totalExpense = useMemo(() => salesData.reduce((s, d) => s + (d.total_expense || 0), 0), [salesData])
 
   const fmt = (n) => new Intl.NumberFormat('ko-KR').format(n)
+
+  const getStoreChartData = (storeName) => {
+    if (tab === 'daily') {
+      return rawData
+        .filter(d => d.store_name === storeName)
+        .map(d => ({ date: d.sale_date.slice(5), amount: d.sale_amount }))
+    } else {
+      return rawData
+        .filter(d => d.store_name === storeName)
+        .map(d => ({
+          month: d.sale_month.slice(5) + '월',
+          카드: d.card_amount,
+          현금: d.cash_no_receipt + d.cash_receipt,
+          이체: d.transfer_amount,
+        }))
+    }
+  }
+
+  const chartTooltipFmt = (v) => fmt(v) + '원'
 
   return (
     <main className="min-h-screen bg-background">
@@ -417,38 +442,79 @@ export default function PosDashboardPage() {
                 {/* 데이터 행 */}
                 <div className="divide-y divide-border/30">
                   {salesData.map((d, i) => (
-                    <div key={d.store_name} className={`px-4 py-3 flex items-center hover:bg-secondary/30 transition-colors ${tab === 'monthly' ? 'min-w-[680px]' : ''}`}>
-                      {tab === 'daily' ? (
-                        <>
-                          <div className="w-[32px] shrink-0 text-center">
-                            <span className="text-[12px] text-muted-foreground font-mono">{i + 1}</span>
+                    <div key={d.store_name}>
+                      <div
+                        onClick={() => setExpandedStore(expandedStore === d.store_name ? null : d.store_name)}
+                        className={`px-4 py-3 flex items-center hover:bg-secondary/30 transition-colors cursor-pointer ${tab === 'monthly' ? 'min-w-[680px]' : ''} ${expandedStore === d.store_name ? 'bg-primary/5' : ''}`}
+                      >
+                        {tab === 'daily' ? (
+                          <>
+                            <div className="w-[32px] shrink-0 text-center">
+                              <span className="text-[12px] text-muted-foreground font-mono">{i + 1}</span>
+                            </div>
+                            <div className="flex-1 min-w-0 flex items-center gap-1.5">
+                              <p className="text-[14px] font-medium text-foreground truncate">{d.store_name}</p>
+                              <svg width="10" height="10" viewBox="0 0 10 10" fill="none" className={`shrink-0 text-muted-foreground transition-transform ${expandedStore === d.store_name ? 'rotate-180' : ''}`}>
+                                <path d="M2 4L5 7L8 4" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>
+                              </svg>
+                            </div>
+                            <div className="w-[110px] shrink-0 text-right">
+                              <p className="text-[14px] font-bold text-foreground">{fmt(d.total_amount)} <span className="text-[11px] font-normal text-muted-foreground">원</span></p>
+                            </div>
+                          </>
+                        ) : (
+                          <div className="flex items-center w-full">
+                            <div className="w-[120px] shrink-0 flex items-center gap-1">
+                              <p className="text-[12px] font-medium text-foreground truncate">{d.store_name}</p>
+                              <svg width="8" height="8" viewBox="0 0 10 10" fill="none" className={`shrink-0 text-muted-foreground transition-transform ${expandedStore === d.store_name ? 'rotate-180' : ''}`}>
+                                <path d="M2 4L5 7L8 4" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>
+                              </svg>
+                            </div>
+                            <div className="w-[90px] shrink-0 text-right">
+                              <p className="text-[12px] text-foreground">{fmt(d.total_card)}</p>
+                            </div>
+                            <div className="w-[90px] shrink-0 text-right">
+                              <p className="text-[12px] text-foreground">{fmt(d.total_cash_no_receipt)}</p>
+                            </div>
+                            <div className="w-[90px] shrink-0 text-right">
+                              <p className="text-[12px] text-foreground">{fmt(d.total_cash_receipt)}</p>
+                            </div>
+                            <div className="w-[90px] shrink-0 text-right">
+                              <p className="text-[12px] text-foreground">{fmt(d.total_transfer)}</p>
+                            </div>
+                            <div className="w-[90px] shrink-0 text-right">
+                              <p className="text-[12px] text-foreground">{fmt(d.total_expense)}</p>
+                            </div>
                           </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-[14px] font-medium text-foreground truncate">{d.store_name}</p>
-                          </div>
-                          <div className="w-[110px] shrink-0 text-right">
-                            <p className="text-[14px] font-bold text-foreground">{fmt(d.total_amount)} <span className="text-[11px] font-normal text-muted-foreground">원</span></p>
-                          </div>
-                        </>
-                      ) : (
-                        <div className="flex items-center w-full">
-                          <div className="w-[120px] shrink-0">
-                            <p className="text-[12px] font-medium text-foreground truncate">{d.store_name}</p>
-                          </div>
-                          <div className="w-[90px] shrink-0 text-right">
-                            <p className="text-[12px] text-foreground">{fmt(d.total_card)}</p>
-                          </div>
-                          <div className="w-[90px] shrink-0 text-right">
-                            <p className="text-[12px] text-foreground">{fmt(d.total_cash_no_receipt)}</p>
-                          </div>
-                          <div className="w-[90px] shrink-0 text-right">
-                            <p className="text-[12px] text-foreground">{fmt(d.total_cash_receipt)}</p>
-                          </div>
-                          <div className="w-[90px] shrink-0 text-right">
-                            <p className="text-[12px] text-foreground">{fmt(d.total_transfer)}</p>
-                          </div>
-                          <div className="w-[90px] shrink-0 text-right">
-                            <p className="text-[12px] text-foreground">{fmt(d.total_expense)}</p>
+                        )}
+                      </div>
+
+                      {/* 아코디언 차트 */}
+                      {expandedStore === d.store_name && (
+                        <div className="px-4 py-4 bg-primary/3 border-t border-border/20">
+                          <p className="text-[12px] font-bold text-foreground mb-3">{d.store_name} {tab === 'daily' ? '일별 추이' : '월별 구성'}</p>
+                          <div className="h-[180px]">
+                            <ResponsiveContainer width="100%" height="100%">
+                              {tab === 'daily' ? (
+                                <LineChart data={getStoreChartData(d.store_name)}>
+                                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f4" />
+                                  <XAxis dataKey="date" tick={{ fontSize: 10 }} />
+                                  <YAxis tick={{ fontSize: 10 }} tickFormatter={v => (v / 10000).toFixed(0) + '만'} width={40} />
+                                  <Tooltip formatter={chartTooltipFmt} />
+                                  <Line type="monotone" dataKey="amount" stroke="#4ECDC4" strokeWidth={2} dot={{ r: 2 }} activeDot={{ r: 4 }} />
+                                </LineChart>
+                              ) : (
+                                <BarChart data={getStoreChartData(d.store_name)}>
+                                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f4" />
+                                  <XAxis dataKey="month" tick={{ fontSize: 11 }} />
+                                  <YAxis tick={{ fontSize: 10 }} tickFormatter={v => (v / 10000).toFixed(0) + '만'} width={40} />
+                                  <Tooltip formatter={chartTooltipFmt} />
+                                  <Bar dataKey="카드" fill="#4ECDC4" radius={[4, 4, 0, 0]} />
+                                  <Bar dataKey="현금" fill="#4ECDC4" fillOpacity={0.5} radius={[4, 4, 0, 0]} />
+                                  <Bar dataKey="이체" fill="#4ECDC4" fillOpacity={0.25} radius={[4, 4, 0, 0]} />
+                                </BarChart>
+                              )}
+                            </ResponsiveContainer>
                           </div>
                         </div>
                       )}
