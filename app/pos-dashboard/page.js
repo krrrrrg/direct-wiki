@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
 import { Header } from '../../components/shared'
 import dynamic from 'next/dynamic'
+import * as XLSX from 'xlsx'
 
 const StoreChartLazy = dynamic(() => import('./StoreChart'), { ssr: false })
 
@@ -206,6 +207,34 @@ export default function PosDashboardPage() {
   const totalExpense = useMemo(() => salesData.reduce((s, d) => s + (d.total_expense || 0), 0), [salesData])
 
   const fmt = (n) => new Intl.NumberFormat('ko-KR').format(n)
+
+  const downloadExcel = () => {
+    let rows
+    let filename
+    if (tab === 'daily') {
+      rows = salesData.map((d, i) => ({
+        '순위': i + 1,
+        '매장명': d.store_name,
+        '판매금액': d.total_amount,
+      }))
+      filename = `일별매출_${startDate}_${endDate}.xlsx`
+    } else {
+      rows = salesData.map(d => ({
+        '매장명': d.store_name,
+        '카드': d.total_card,
+        '현금(무)': d.total_cash_no_receipt,
+        '현금영수증': d.total_cash_receipt,
+        '이체': d.total_transfer,
+        '비용': d.total_expense,
+        '합계': d.total_amount,
+      }))
+      filename = `월별매출_${startMonth}_${endMonth}.xlsx`
+    }
+    const ws = XLSX.utils.json_to_sheet(rows)
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, '매출')
+    XLSX.writeFile(wb, filename)
+  }
 
   const getStoreChartData = (storeName) => {
     try {
@@ -413,14 +442,28 @@ export default function PosDashboardPage() {
         {/* 결과 */}
         {searched && !loading && (
           <>
-            <div className="mb-4 space-y-1">
+            <div className="mb-4 space-y-2">
               <div className="flex items-center justify-between">
                 <p className="text-[14px] text-muted-foreground">{salesData.length}개 매장</p>
                 <p className="text-[15px] font-bold text-foreground">합계 {fmt(totalAmount)} 원</p>
               </div>
-              <p className="text-[11px] text-muted-foreground">
-                조회 기간: {tab === 'daily' ? `${startDate} ~ ${endDate}` : `${startMonth} ~ ${endMonth}`}
-              </p>
+              <div className="flex items-center justify-between">
+                <p className="text-[11px] text-muted-foreground">
+                  조회 기간: {tab === 'daily' ? `${startDate} ~ ${endDate}` : `${startMonth} ~ ${endMonth}`}
+                </p>
+                {salesData.length > 0 && (
+                  <button
+                    onClick={downloadExcel}
+                    className="flex items-center gap-1 px-3 py-1.5 rounded-full bg-primary/10 text-primary text-[11px] font-semibold hover:bg-primary/20 transition-colors"
+                  >
+                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                      <path d="M6 2V8M6 8L4 6M6 8L8 6" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>
+                      <path d="M2 10H10" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
+                    </svg>
+                    엑셀 다운로드
+                  </button>
+                )}
+              </div>
             </div>
 
             {salesData.length > 0 && (
