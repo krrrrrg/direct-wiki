@@ -65,14 +65,12 @@ export default function PosDashboardPage() {
   useEffect(() => {
     async function fetchStores() {
       const table = tab === 'daily' ? 'daily_sales' : 'monthly_sales'
-      const { data } = await supabase.from(table).select('store_name, store_code')
+      const { data } = await supabase.from(table).select('store_name')
       if (data) {
-        const unique = new Map()
-        data.forEach(d => {
-          if (!unique.has(d.store_name)) unique.set(d.store_name, d.store_code)
-        })
-        const list = Array.from(unique.entries())
-          .map(([name, code]) => ({ store_name: name, store_code: code }))
+        const unique = new Set()
+        data.forEach(d => unique.add(d.store_name))
+        const list = Array.from(unique)
+          .map(name => ({ store_name: name }))
           .sort((a, b) => a.store_name.localeCompare(b.store_name, 'ko'))
         setStoreList(list)
       }
@@ -82,10 +80,7 @@ export default function PosDashboardPage() {
 
   const filteredStores = useMemo(() => {
     if (!storeSearch.trim()) return []
-    return storeList.filter(s =>
-      s.store_name.includes(storeSearch) ||
-      (s.store_code && s.store_code.includes(storeSearch))
-    )
+    return storeList.filter(s => s.store_name.includes(storeSearch))
   }, [storeSearch, storeList])
 
   // 탭 전환 시 결과 초기화
@@ -107,7 +102,7 @@ export default function PosDashboardPage() {
       if (!startDate || !endDate) { setLoading(false); return }
       let query = supabase
         .from('daily_sales')
-        .select('store_name, store_code, sale_date, sale_amount')
+        .select('store_name, sale_date, sale_amount')
         .gte('sale_date', startDate)
         .lte('sale_date', endDate)
         .order('sale_date', { ascending: true })
@@ -118,7 +113,7 @@ export default function PosDashboardPage() {
         const grouped = new Map()
         data.forEach(d => {
           if (!grouped.has(d.store_name)) {
-            grouped.set(d.store_name, { store_name: d.store_name, store_code: d.store_code, total_amount: 0 })
+            grouped.set(d.store_name, { store_name: d.store_name, total_amount: 0 })
           }
           grouped.get(d.store_name).total_amount += d.sale_amount
         })
@@ -128,7 +123,7 @@ export default function PosDashboardPage() {
       if (!startMonth || !endMonth) { setLoading(false); return }
       let query = supabase
         .from('monthly_sales')
-        .select('store_name, store_code, sale_month, card_amount, cash_no_receipt, cash_receipt, transfer_amount, cash_receipt_transfer, expense_amount')
+        .select('store_name, sale_month, card_amount, cash_no_receipt, cash_receipt, transfer_amount, cash_receipt_transfer, expense_amount')
         .gte('sale_month', startMonth)
         .lte('sale_month', endMonth)
         .order('sale_month', { ascending: true })
@@ -140,7 +135,7 @@ export default function PosDashboardPage() {
         data.forEach(d => {
           if (!grouped.has(d.store_name)) {
             grouped.set(d.store_name, {
-              store_name: d.store_name, store_code: d.store_code,
+              store_name: d.store_name,
               total_card: 0, total_cash_no_receipt: 0, total_cash_receipt: 0,
               total_transfer: 0, total_cash_receipt_transfer: 0, total_expense: 0,
             })
@@ -261,9 +256,6 @@ export default function PosDashboardPage() {
                 <div className="flex items-center justify-between p-3 rounded-xl bg-primary/5 border border-primary/20">
                   <div>
                     <p className="text-[14px] font-bold">{selectedStore.store_name}</p>
-                    {selectedStore.store_code && (
-                      <p className="text-[12px] text-muted-foreground font-mono">{selectedStore.store_code}</p>
-                    )}
                   </div>
                   <button
                     onClick={() => { setSelectedStore(null); setStoreSearch('') }}
@@ -277,7 +269,7 @@ export default function PosDashboardPage() {
                   <Input
                     value={storeSearch}
                     onChange={e => setStoreSearch(e.target.value)}
-                    placeholder="전체 (매장명 또는 코드로 검색)"
+                    placeholder="전체 (매장명으로 검색)"
                     className="h-11 text-[14px] rounded-xl"
                   />
                   {filteredStores.length > 0 && (
@@ -289,9 +281,6 @@ export default function PosDashboardPage() {
                           className="w-full text-left px-4 py-2.5 hover:bg-secondary/50 transition-colors border-b border-border/20 last:border-0"
                         >
                           <p className="text-[14px] font-medium">{s.store_name}</p>
-                          {s.store_code && (
-                            <p className="text-[12px] text-primary font-mono mt-0.5">{s.store_code}</p>
-                          )}
                         </button>
                       ))}
                     </div>
@@ -355,7 +344,6 @@ export default function PosDashboardPage() {
                           </div>
                           <div className="flex-1 min-w-0">
                             <p className="text-[14px] font-medium text-foreground truncate">{d.store_name}</p>
-                            {d.store_code && <p className="text-[11px] text-muted-foreground font-mono">{d.store_code}</p>}
                           </div>
                           <div className="w-[110px] shrink-0 text-right">
                             <p className="text-[14px] font-bold text-foreground">{fmt(d.total_amount)} <span className="text-[11px] font-normal text-muted-foreground">원</span></p>
