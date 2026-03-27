@@ -138,9 +138,11 @@ export default function PosDashboardPage() {
         .gte('sale_date', startDate)
         .lte('sale_date', endDate)
         .order('sale_date', { ascending: true })
+        .limit(10000)
       if (selectedStore) query = query.eq('store_name', selectedStore.store_name)
 
-      const { data } = await query
+      const { data, error } = await query
+      if (error) { console.error(error); setLoading(false); return }
       if (data) {
         setRawData(data)
         const grouped = new Map()
@@ -160,9 +162,11 @@ export default function PosDashboardPage() {
         .gte('sale_month', startMonth)
         .lte('sale_month', endMonth)
         .order('sale_month', { ascending: true })
+        .limit(10000)
       if (selectedStore) query = query.eq('store_name', selectedStore.store_name)
 
-      const { data } = await query
+      const { data, error } = await query
+      if (error) { console.error(error); setLoading(false); return }
       if (data) {
         setRawData(data)
         const grouped = new Map()
@@ -202,18 +206,20 @@ export default function PosDashboardPage() {
   const fmt = (n) => new Intl.NumberFormat('ko-KR').format(n)
 
   const getStoreChartData = (storeName) => {
-    if (tab === 'daily') {
-      return rawData
-        .filter(d => d.store_name === storeName)
-        .map(d => ({ date: d.sale_date.slice(5), amount: d.sale_amount }))
-    } else {
-      return rawData
-        .filter(d => d.store_name === storeName)
-        .map(d => ({
-          month: d.sale_month.slice(5) + '월',
-          총액: d.card_amount + d.cash_no_receipt + d.cash_receipt + d.transfer_amount,
-        }))
-    }
+    try {
+      if (tab === 'daily') {
+        return rawData
+          .filter(d => d.store_name === storeName)
+          .map(d => ({ date: (d.sale_date || '').slice(5), amount: d.sale_amount || 0 }))
+      } else {
+        return rawData
+          .filter(d => d.store_name === storeName)
+          .map(d => ({
+            month: (d.sale_month || '').slice(5) + '월',
+            총액: (d.card_amount || 0) + (d.cash_no_receipt || 0) + (d.cash_receipt || 0) + (d.transfer_amount || 0),
+          }))
+      }
+    } catch { return [] }
   }
 
   const chartTooltipFmt = (v) => fmt(v) + '원'
