@@ -333,21 +333,21 @@ export default function PosDashboardPage() {
                     <span className="text-[12px] font-bold text-primary text-right w-[100px] shrink-0">판매금액</span>
                   </div>
                 ) : (
-                  <div className="bg-primary/5 border-b border-primary/10 px-4 py-3 flex items-center min-w-[700px]">
-                    <span className="text-[11px] font-bold text-primary flex-1 min-w-[100px]">매장명</span>
-                    <span className="text-[11px] font-bold text-primary text-right w-[72px] shrink-0">카드</span>
-                    <span className="text-[11px] font-bold text-primary text-right w-[72px] shrink-0">현금(무)</span>
-                    <span className="text-[11px] font-bold text-primary text-right w-[72px] shrink-0">현금영수증</span>
-                    <span className="text-[11px] font-bold text-primary text-right w-[60px] shrink-0">이체</span>
-                    <span className="text-[11px] font-bold text-primary text-right w-[72px] shrink-0">영수증-이체</span>
-                    <span className="text-[11px] font-bold text-primary text-right w-[60px] shrink-0">비용</span>
+                  <div className="bg-primary/5 border-b border-primary/10 px-4 py-3 flex items-center min-w-[780px]">
+                    <span className="text-[11px] font-bold text-primary w-[120px] shrink-0">매장명</span>
+                    <span className="text-[11px] font-bold text-primary text-right w-[90px] shrink-0">카드</span>
+                    <span className="text-[11px] font-bold text-primary text-right w-[90px] shrink-0">현금(무)</span>
+                    <span className="text-[11px] font-bold text-primary text-right w-[90px] shrink-0">현금영수증</span>
+                    <span className="text-[11px] font-bold text-primary text-right w-[90px] shrink-0">이체</span>
+                    <span className="text-[11px] font-bold text-primary text-right w-[90px] shrink-0">영수증-이체</span>
+                    <span className="text-[11px] font-bold text-primary text-right w-[90px] shrink-0">비용</span>
                   </div>
                 )}
 
                 {/* 데이터 행 */}
                 <div className="divide-y divide-border/30">
                   {salesData.map(d => (
-                    <div key={d.store_name} className="px-4 py-3.5 flex items-center hover:bg-secondary/30 transition-colors">
+                    <div key={d.store_name} className={`px-4 py-3.5 flex items-center hover:bg-secondary/30 transition-colors ${tab === 'monthly' ? 'min-w-[780px]' : ''}`}>
                       {tab === 'daily' ? (
                         <>
                           <div className="w-[72px] shrink-0">
@@ -362,26 +362,26 @@ export default function PosDashboardPage() {
                           </div>
                         </>
                       ) : (
-                        <div className="flex items-center min-w-[700px] w-full">
-                          <div className="flex-1 min-w-[100px]">
+                        <div className="flex items-center w-full">
+                          <div className="w-[120px] shrink-0">
                             <p className="text-[12px] font-medium text-foreground truncate">{d.store_name}</p>
                           </div>
-                          <div className="w-[72px] shrink-0 text-right">
+                          <div className="w-[90px] shrink-0 text-right">
                             <p className="text-[12px] text-foreground">{fmt(d.total_card)}</p>
                           </div>
-                          <div className="w-[72px] shrink-0 text-right">
+                          <div className="w-[90px] shrink-0 text-right">
                             <p className="text-[12px] text-foreground">{fmt(d.total_cash_no_receipt)}</p>
                           </div>
-                          <div className="w-[72px] shrink-0 text-right">
+                          <div className="w-[90px] shrink-0 text-right">
                             <p className="text-[12px] text-foreground">{fmt(d.total_cash_receipt)}</p>
                           </div>
-                          <div className="w-[60px] shrink-0 text-right">
+                          <div className="w-[90px] shrink-0 text-right">
                             <p className="text-[12px] text-foreground">{fmt(d.total_transfer)}</p>
                           </div>
-                          <div className="w-[72px] shrink-0 text-right">
+                          <div className="w-[90px] shrink-0 text-right">
                             <p className="text-[12px] text-foreground">{fmt(d.total_cash_receipt_transfer)}</p>
                           </div>
-                          <div className="w-[60px] shrink-0 text-right">
+                          <div className="w-[90px] shrink-0 text-right">
                             <p className="text-[12px] text-foreground">{fmt(d.total_expense)}</p>
                           </div>
                         </div>
@@ -392,14 +392,14 @@ export default function PosDashboardPage() {
 
                 {/* 월별 합계행 */}
                 {tab === 'monthly' && (
-                  <div className="bg-primary/5 border-t border-primary/10 px-4 py-3 flex items-center min-w-[700px]">
-                    <div className="flex-1 min-w-[100px]"><p className="text-[11px] font-bold text-primary">합계</p></div>
-                    <div className="w-[72px] shrink-0 text-right"><p className="text-[11px] font-bold text-primary">{fmt(totalCard)}</p></div>
-                    <div className="w-[72px] shrink-0 text-right"><p className="text-[11px] font-bold text-primary">{fmt(totalCashNoReceipt)}</p></div>
-                    <div className="w-[72px] shrink-0 text-right"><p className="text-[11px] font-bold text-primary">{fmt(totalCashReceipt)}</p></div>
-                    <div className="w-[60px] shrink-0 text-right"><p className="text-[11px] font-bold text-primary">{fmt(totalTransfer)}</p></div>
-                    <div className="w-[72px] shrink-0 text-right"><p className="text-[11px] font-bold text-primary">{fmt(totalCashReceiptTransfer)}</p></div>
-                    <div className="w-[60px] shrink-0 text-right"><p className="text-[11px] font-bold text-primary">{fmt(totalExpense)}</p></div>
+                  <div className="bg-primary/5 border-t border-primary/10 px-4 py-3 flex items-center min-w-[780px]">
+                    <div className="w-[120px] shrink-0"><p className="text-[11px] font-bold text-primary">합계</p></div>
+                    <div className="w-[90px] shrink-0 text-right"><p className="text-[11px] font-bold text-primary">{fmt(totalCard)}</p></div>
+                    <div className="w-[90px] shrink-0 text-right"><p className="text-[11px] font-bold text-primary">{fmt(totalCashNoReceipt)}</p></div>
+                    <div className="w-[90px] shrink-0 text-right"><p className="text-[11px] font-bold text-primary">{fmt(totalCashReceipt)}</p></div>
+                    <div className="w-[90px] shrink-0 text-right"><p className="text-[11px] font-bold text-primary">{fmt(totalTransfer)}</p></div>
+                    <div className="w-[90px] shrink-0 text-right"><p className="text-[11px] font-bold text-primary">{fmt(totalCashReceiptTransfer)}</p></div>
+                    <div className="w-[90px] shrink-0 text-right"><p className="text-[11px] font-bold text-primary">{fmt(totalExpense)}</p></div>
                   </div>
                 )}
               </Card>
