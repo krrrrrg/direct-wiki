@@ -54,9 +54,18 @@ export default function PosDashboardPage() {
   const prevMonthStart = `${month === 0 ? year - 1 : year}-${String(month === 0 ? 12 : month).padStart(2, '0')}-01`
   const prevMonthEnd = `${month === 0 ? year - 1 : year}-${String(month === 0 ? 12 : month).padStart(2, '0')}-${new Date(month === 0 ? year - 1 : year, month === 0 ? 12 : month, 0).getDate()}`
 
+  const twoDaysAgo = new Date(now)
+  twoDaysAgo.setDate(twoDaysAgo.getDate() - 2)
+  const twoDaysAgoStr = twoDaysAgo.toISOString().split('T')[0]
+  const threeDaysAgo = new Date(now)
+  threeDaysAgo.setDate(threeDaysAgo.getDate() - 3)
+  const threeDaysAgoStr = threeDaysAgo.toISOString().split('T')[0]
+
   const dailyPresets = [
     { label: '오늘', start: today, end: today },
     { label: '어제', start: yesterdayStr, end: yesterdayStr },
+    { label: '2일전', start: twoDaysAgoStr, end: twoDaysAgoStr },
+    { label: '3일전', start: threeDaysAgoStr, end: threeDaysAgoStr },
     { label: '이번주', start: thisMondayStr, end: today },
     { label: '저번주', start: lastMondayStr, end: lastSundayStr },
     { label: '최근 7일', start: new Date(now.getTime() - 6 * 86400000).toISOString().split('T')[0], end: today },
