@@ -33,17 +33,36 @@ export default function PosDashboardPage() {
   const [searched, setSearched] = useState(false)
   const [activePreset, setActivePreset] = useState(null)
 
+  // 일별 프리셋용 날짜 계산
+  const yesterday = new Date(now)
+  yesterday.setDate(yesterday.getDate() - 1)
+  const yesterdayStr = yesterday.toISOString().split('T')[0]
+
+  const dayOfWeek = now.getDay() // 0=일 1=월 ... 6=토
+  const mondayOffset = dayOfWeek === 0 ? 6 : dayOfWeek - 1
+  const thisMonday = new Date(now)
+  thisMonday.setDate(thisMonday.getDate() - mondayOffset)
+  const thisMondayStr = thisMonday.toISOString().split('T')[0]
+
+  const lastMonday = new Date(thisMonday)
+  lastMonday.setDate(lastMonday.getDate() - 7)
+  const lastMondayStr = lastMonday.toISOString().split('T')[0]
+  const lastSunday = new Date(thisMonday)
+  lastSunday.setDate(lastSunday.getDate() - 1)
+  const lastSundayStr = lastSunday.toISOString().split('T')[0]
+
+  const prevMonthStart = `${month === 0 ? year - 1 : year}-${String(month === 0 ? 12 : month).padStart(2, '0')}-01`
+  const prevMonthEnd = `${month === 0 ? year - 1 : year}-${String(month === 0 ? 12 : month).padStart(2, '0')}-${new Date(month === 0 ? year - 1 : year, month === 0 ? 12 : month, 0).getDate()}`
+
   const dailyPresets = [
+    { label: '오늘', start: today, end: today },
+    { label: '어제', start: yesterdayStr, end: yesterdayStr },
+    { label: '이번주', start: thisMondayStr, end: today },
+    { label: '저번주', start: lastMondayStr, end: lastSundayStr },
+    { label: '최근 7일', start: new Date(now.getTime() - 6 * 86400000).toISOString().split('T')[0], end: today },
+    { label: '최근 30일', start: new Date(now.getTime() - 29 * 86400000).toISOString().split('T')[0], end: today },
     { label: '이번달', start: `${year}-${String(month + 1).padStart(2, '0')}-01`, end: today },
-    { label: '저번달', start: `${month === 0 ? year - 1 : year}-${String(month === 0 ? 12 : month).padStart(2, '0')}-01`, end: `${month === 0 ? year - 1 : year}-${String(month === 0 ? 12 : month).padStart(2, '0')}-${new Date(month === 0 ? year - 1 : year, month === 0 ? 12 : month, 0).getDate()}` },
-    { label: '1분기', start: `${year}-01-01`, end: `${year}-03-31` },
-    { label: '2분기', start: `${year}-04-01`, end: `${year}-06-30` },
-    { label: '3분기', start: `${year}-07-01`, end: `${year}-09-30` },
-    { label: '4분기', start: `${year}-10-01`, end: `${year}-12-31` },
-    { label: '상반기', start: `${year}-01-01`, end: `${year}-06-30` },
-    { label: '하반기', start: `${year}-07-01`, end: `${year}-12-31` },
-    { label: '올해', start: `${year}-01-01`, end: `${year}-12-31` },
-    { label: '전년도', start: `${year - 1}-01-01`, end: `${year - 1}-12-31` },
+    { label: '저번달', start: prevMonthStart, end: prevMonthEnd },
   ]
 
   const monthlyPresets = [
