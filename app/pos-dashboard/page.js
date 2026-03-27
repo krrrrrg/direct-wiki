@@ -248,32 +248,59 @@ export default function PosDashboardPage() {
             </div>
 
             {/* 날짜/월 입력 */}
-            <div>
-              <label className="text-[13px] font-bold text-foreground mb-2 block">
-                {tab === 'daily' ? '일자' : '월'}
-              </label>
-              <div className="flex items-center gap-2">
-                <Input
-                  type={tab === 'daily' ? 'date' : 'month'}
-                  value={tab === 'daily' ? startDate : startMonth}
-                  onChange={e => {
-                    tab === 'daily' ? setStartDate(e.target.value) : setStartMonth(e.target.value)
-                    setActivePreset(null)
-                  }}
-                  className="h-11 text-[14px] rounded-xl flex-1"
-                />
-                <span className="text-[13px] text-muted-foreground shrink-0">~</span>
-                <Input
-                  type={tab === 'daily' ? 'date' : 'month'}
-                  value={tab === 'daily' ? endDate : endMonth}
-                  onChange={e => {
-                    tab === 'daily' ? setEndDate(e.target.value) : setEndMonth(e.target.value)
-                    setActivePreset(null)
-                  }}
-                  className="h-11 text-[14px] rounded-xl flex-1"
-                />
+            {tab === 'daily' ? (
+              <div>
+                <label className="text-[13px] font-bold text-foreground mb-2 block">일자</label>
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="date"
+                    value={startDate}
+                    onChange={e => { setStartDate(e.target.value); setActivePreset(null) }}
+                    className="h-11 text-[14px] rounded-xl flex-1"
+                  />
+                  <span className="text-[13px] text-muted-foreground shrink-0">~</span>
+                  <Input
+                    type="date"
+                    value={endDate}
+                    onChange={e => { setEndDate(e.target.value); setActivePreset(null) }}
+                    className="h-11 text-[14px] rounded-xl flex-1"
+                  />
+                </div>
               </div>
-            </div>
+            ) : (
+              <div>
+                <label className="text-[13px] font-bold text-foreground mb-2 block">{year}년</label>
+                <div className="grid grid-cols-6 gap-1.5">
+                  {[1,2,3,4,5,6,7,8,9,10,11,12].map(m => {
+                    const mv = `${year}-${String(m).padStart(2, '0')}`
+                    const isSelected = startMonth === mv && endMonth === mv
+                    const isInRange = mv >= startMonth && mv <= endMonth && startMonth !== endMonth
+                    return (
+                      <button
+                        key={m}
+                        onClick={() => {
+                          setStartMonth(mv)
+                          setEndMonth(mv)
+                          setActivePreset(null)
+                        }}
+                        className={`py-2 rounded-xl text-[13px] font-semibold transition-colors ${
+                          isSelected
+                            ? 'bg-primary text-white'
+                            : isInRange
+                              ? 'bg-primary/20 text-primary'
+                              : 'bg-primary/5 text-foreground hover:bg-primary/10'
+                        }`}
+                      >
+                        {m}월
+                      </button>
+                    )
+                  })}
+                </div>
+                <p className="text-[11px] text-muted-foreground mt-2">
+                  선택: {startMonth} ~ {endMonth}
+                </p>
+              </div>
+            )}
 
             {/* 매장 */}
             <div>
