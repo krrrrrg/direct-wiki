@@ -328,9 +328,9 @@ export default function PosDashboardPage() {
                 {/* 헤더 */}
                 {tab === 'daily' ? (
                   <div className="bg-primary/5 border-b border-primary/10 px-4 py-3 flex items-center">
-                    <span className="text-[12px] font-bold text-primary w-[72px] shrink-0">매장코드</span>
-                    <span className="text-[12px] font-bold text-primary flex-1">매장명</span>
-                    <span className="text-[12px] font-bold text-primary text-right w-[100px] shrink-0">판매금액</span>
+                    <span className="text-[12px] font-bold text-primary w-[32px] shrink-0 text-center">#</span>
+                    <span className="text-[12px] font-bold text-primary flex-1">매장</span>
+                    <span className="text-[12px] font-bold text-primary text-right w-[110px] shrink-0">판매금액</span>
                   </div>
                 ) : (
                   <div className="bg-primary/5 border-b border-primary/10 px-4 py-3 flex items-center min-w-[780px]">
@@ -346,19 +346,19 @@ export default function PosDashboardPage() {
 
                 {/* 데이터 행 */}
                 <div className="divide-y divide-border/30">
-                  {salesData.map(d => (
-                    <div key={d.store_name} className={`px-4 py-3.5 flex items-center hover:bg-secondary/30 transition-colors ${tab === 'monthly' ? 'min-w-[780px]' : ''}`}>
+                  {salesData.map((d, i) => (
+                    <div key={d.store_name} className={`px-4 py-3 flex items-center hover:bg-secondary/30 transition-colors ${tab === 'monthly' ? 'min-w-[780px]' : ''}`}>
                       {tab === 'daily' ? (
                         <>
-                          <div className="w-[72px] shrink-0">
-                            <span className="text-[13px] text-muted-foreground font-mono">{d.store_code || '-'}</span>
+                          <div className="w-[32px] shrink-0 text-center">
+                            <span className="text-[12px] text-muted-foreground font-mono">{i + 1}</span>
                           </div>
                           <div className="flex-1 min-w-0">
                             <p className="text-[14px] font-medium text-foreground truncate">{d.store_name}</p>
+                            {d.store_code && <p className="text-[11px] text-muted-foreground font-mono">{d.store_code}</p>}
                           </div>
-                          <div className="w-[100px] shrink-0 text-right">
-                            <p className="text-[14px] font-bold text-foreground">{fmt(d.total_amount)}</p>
-                            <p className="text-[11px] text-muted-foreground">원</p>
+                          <div className="w-[110px] shrink-0 text-right">
+                            <p className="text-[14px] font-bold text-foreground">{fmt(d.total_amount)} <span className="text-[11px] font-normal text-muted-foreground">원</span></p>
                           </div>
                         </>
                       ) : (
@@ -389,6 +389,15 @@ export default function PosDashboardPage() {
                     </div>
                   ))}
                 </div>
+
+                {/* 일별 합계행 */}
+                {tab === 'daily' && (
+                  <div className="bg-primary/5 border-t border-primary/10 px-4 py-3 flex items-center">
+                    <div className="w-[32px] shrink-0" />
+                    <div className="flex-1"><p className="text-[13px] font-bold text-primary">{salesData.length}개 매장 합계</p></div>
+                    <div className="w-[110px] shrink-0 text-right"><p className="text-[13px] font-bold text-primary">{fmt(totalAmount)} 원</p></div>
+                  </div>
+                )}
 
                 {/* 월별 합계행 */}
                 {tab === 'monthly' && (
