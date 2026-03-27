@@ -333,9 +333,14 @@ export default function PosDashboardPage() {
         {/* 결과 */}
         {searched && !loading && (
           <>
-            <div className="flex items-center justify-between mb-4">
-              <p className="text-[14px] text-muted-foreground">{salesData.length}개 매장</p>
-              <p className="text-[15px] font-bold text-foreground">합계 {fmt(totalAmount)} 원</p>
+            <div className="mb-4 space-y-1">
+              <div className="flex items-center justify-between">
+                <p className="text-[14px] text-muted-foreground">{salesData.length}개 매장</p>
+                <p className="text-[15px] font-bold text-foreground">합계 {fmt(totalAmount)} 원</p>
+              </div>
+              <p className="text-[11px] text-muted-foreground">
+                조회 기간: {tab === 'daily' ? `${startDate} ~ ${endDate}` : `${startMonth} ~ ${endMonth}`}
+              </p>
             </div>
 
             {salesData.length > 0 && (
