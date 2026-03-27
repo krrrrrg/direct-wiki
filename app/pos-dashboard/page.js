@@ -10,12 +10,30 @@ export default function PosDashboardPage() {
   const now = new Date()
   const today = now.toISOString().split('T')[0]
   const year = now.getFullYear()
-  const month = now.getMonth() // 0-indexed
+  const month = now.getMonth()
+  const currentMonth = `${year}-${String(month + 1).padStart(2, '0')}`
 
+  // 탭
+  const [tab, setTab] = useState('daily')
+
+  // 일별 필터
   const [startDate, setStartDate] = useState(today)
   const [endDate, setEndDate] = useState(today)
 
-  const datePresets = [
+  // 월별 필터
+  const [startMonth, setStartMonth] = useState(currentMonth)
+  const [endMonth, setEndMonth] = useState(currentMonth)
+
+  // 공통
+  const [storeSearch, setStoreSearch] = useState('')
+  const [selectedStore, setSelectedStore] = useState(null)
+  const [storeList, setStoreList] = useState([])
+  const [salesData, setSalesData] = useState([])
+  const [loading, setLoading] = useState(false)
+  const [searched, setSearched] = useState(false)
+  const [activePreset, setActivePreset] = useState(null)
+
+  const dailyPresets = [
     { label: '이번달', start: `${year}-${String(month + 1).padStart(2, '0')}-01`, end: today },
     { label: '저번달', start: `${month === 0 ? year - 1 : year}-${String(month === 0 ? 12 : month).padStart(2, '0')}-01`, end: `${month === 0 ? year - 1 : year}-${String(month === 0 ? 12 : month).padStart(2, '0')}-${new Date(month === 0 ? year - 1 : year, month === 0 ? 12 : month, 0).getDate()}` },
     { label: '1분기', start: `${year}-01-01`, end: `${year}-03-31` },
@@ -28,26 +46,30 @@ export default function PosDashboardPage() {
     { label: '전년도', start: `${year - 1}-01-01`, end: `${year - 1}-12-31` },
   ]
 
-  const [activePreset, setActivePreset] = useState(null)
-  const [storeSearch, setStoreSearch] = useState('')
-  const [selectedStore, setSelectedStore] = useState(null)
-  const [storeList, setStoreList] = useState([])
-  const [salesData, setSalesData] = useState([])
-  const [loading, setLoading] = useState(false)
-  const [searched, setSearched] = useState(false)
+  const monthlyPresets = [
+    { label: '이번달', start: currentMonth, end: currentMonth },
+    { label: '저번달', start: `${month === 0 ? year - 1 : year}-${String(month === 0 ? 12 : month).padStart(2, '0')}`, end: `${month === 0 ? year - 1 : year}-${String(month === 0 ? 12 : month).padStart(2, '0')}` },
+    { label: '1분기', start: `${year}-01`, end: `${year}-03` },
+    { label: '2분기', start: `${year}-04`, end: `${year}-06` },
+    { label: '3분기', start: `${year}-07`, end: `${year}-09` },
+    { label: '4분기', start: `${year}-10`, end: `${year}-12` },
+    { label: '상반기', start: `${year}-01`, end: `${year}-06` },
+    { label: '하반기', start: `${year}-07`, end: `${year}-12` },
+    { label: '올해', start: `${year}-01`, end: `${year}-12` },
+    { label: '전년도', start: `${year - 1}-01`, end: `${year - 1}-12` },
+  ]
 
-  // 매장 목록 가져오기 (daily_sales에 있는 매장명 기준)
+  const presets = tab === 'daily' ? dailyPresets : monthlyPresets
+
+  // 매장 목록
   useEffect(() => {
     async function fetchStores() {
-      const { data } = await supabase
-        .from('daily_sales')
-        .select('store_name, store_code')
+      const table = tab === 'daily' ? 'daily_sales' : 'monthly_sales'
+      const { data } = await supabase.from(table).select('store_name, store_code')
       if (data) {
         const unique = new Map()
         data.forEach(d => {
-          if (!unique.has(d.store_name)) {
-            unique.set(d.store_name, d.store_code)
-          }
+          if (!unique.has(d.store_name)) unique.set(d.store_name, d.store_code)
         })
         const list = Array.from(unique.entries())
           .map(([name, code]) => ({ store_name: name, store_code: code }))
@@ -56,7 +78,7 @@ export default function PosDashboardPage() {
       }
     }
     fetchStores()
-  }, [])
+  }, [tab])
 
   const filteredStores = useMemo(() => {
     if (!storeSearch.trim()) return []
@@ -66,74 +88,118 @@ export default function PosDashboardPage() {
     )
   }, [storeSearch, storeList])
 
+  // 탭 전환 시 결과 초기화
+  function switchTab(t) {
+    setTab(t)
+    setSalesData([])
+    setSearched(false)
+    setActivePreset(null)
+    setSelectedStore(null)
+    setStoreSearch('')
+  }
+
+  // 조회
   const handleSearch = useCallback(async () => {
-    if (!startDate || !endDate) return
     setLoading(true)
     setSearched(true)
 
-    let query = supabase
-      .from('daily_sales')
-      .select('store_name, store_code, sale_date, sale_amount')
-      .gte('sale_date', startDate)
-      .lte('sale_date', endDate)
-      .order('sale_date', { ascending: true })
+    if (tab === 'daily') {
+      if (!startDate || !endDate) { setLoading(false); return }
+      let query = supabase
+        .from('daily_sales')
+        .select('store_name, store_code, sale_date, sale_amount')
+        .gte('sale_date', startDate)
+        .lte('sale_date', endDate)
+        .order('sale_date', { ascending: true })
+      if (selectedStore) query = query.eq('store_name', selectedStore.store_name)
 
-    if (selectedStore) {
-      query = query.eq('store_name', selectedStore.store_name)
-    }
+      const { data } = await query
+      if (data) {
+        const grouped = new Map()
+        data.forEach(d => {
+          if (!grouped.has(d.store_name)) {
+            grouped.set(d.store_name, { store_name: d.store_name, store_code: d.store_code, total_amount: 0 })
+          }
+          grouped.get(d.store_name).total_amount += d.sale_amount
+        })
+        setSalesData(Array.from(grouped.values()).sort((a, b) => b.total_amount - a.total_amount))
+      }
+    } else {
+      if (!startMonth || !endMonth) { setLoading(false); return }
+      let query = supabase
+        .from('monthly_sales')
+        .select('store_name, store_code, sale_month, card_amount, cash_amount')
+        .gte('sale_month', startMonth)
+        .lte('sale_month', endMonth)
+        .order('sale_month', { ascending: true })
+      if (selectedStore) query = query.eq('store_name', selectedStore.store_name)
 
-    const { data } = await query
-
-    if (data) {
-      // 매장별로 합산
-      const grouped = new Map()
-      data.forEach(d => {
-        const key = d.store_name
-        if (!grouped.has(key)) {
-          grouped.set(key, {
-            store_name: d.store_name,
-            store_code: d.store_code,
-            total_amount: 0,
-          })
-        }
-        grouped.get(key).total_amount += d.sale_amount
-      })
-
-      const result = Array.from(grouped.values())
-        .sort((a, b) => b.total_amount - a.total_amount)
-
-      setSalesData(result)
+      const { data } = await query
+      if (data) {
+        const grouped = new Map()
+        data.forEach(d => {
+          if (!grouped.has(d.store_name)) {
+            grouped.set(d.store_name, { store_name: d.store_name, store_code: d.store_code, total_card: 0, total_cash: 0 })
+          }
+          const g = grouped.get(d.store_name)
+          g.total_card += d.card_amount
+          g.total_cash += d.cash_amount
+        })
+        setSalesData(
+          Array.from(grouped.values())
+            .map(d => ({ ...d, total_amount: d.total_card + d.total_cash }))
+            .sort((a, b) => b.total_amount - a.total_amount)
+        )
+      }
     }
 
     setLoading(false)
-  }, [startDate, endDate, selectedStore])
+  }, [tab, startDate, endDate, startMonth, endMonth, selectedStore])
 
-  // 전체 합계
-  const totalAmount = useMemo(() =>
-    salesData.reduce((sum, d) => sum + d.total_amount, 0), [salesData])
+  const totalAmount = useMemo(() => salesData.reduce((s, d) => s + (d.total_amount || 0), 0), [salesData])
+  const totalCard = useMemo(() => salesData.reduce((s, d) => s + (d.total_card || 0), 0), [salesData])
+  const totalCash = useMemo(() => salesData.reduce((s, d) => s + (d.total_cash || 0), 0), [salesData])
 
-  const formatAmount = (amount) => {
-    return new Intl.NumberFormat('ko-KR').format(amount)
-  }
+  const fmt = (n) => new Intl.NumberFormat('ko-KR').format(n)
 
   return (
     <main className="min-h-screen bg-background">
-      <Header title="일별매출" showBack />
+      <Header title="매출 대시보드" showBack />
 
       <div className="max-w-[672px] mx-auto px-5 pb-10">
-        {/* 필터 영역 */}
-        <Card className="rounded-2xl border-border/40 shadow-sm mt-6 mb-6">
+        {/* 탭 */}
+        <div className="flex mt-6 mb-4 bg-primary/5 rounded-2xl p-1">
+          <button
+            onClick={() => switchTab('daily')}
+            className={`flex-1 py-2.5 rounded-xl text-[14px] font-bold transition-colors ${
+              tab === 'daily' ? 'bg-primary text-white shadow-sm' : 'text-primary'
+            }`}
+          >
+            일별매출
+          </button>
+          <button
+            onClick={() => switchTab('monthly')}
+            className={`flex-1 py-2.5 rounded-xl text-[14px] font-bold transition-colors ${
+              tab === 'monthly' ? 'bg-primary text-white shadow-sm' : 'text-primary'
+            }`}
+          >
+            월별매출
+          </button>
+        </div>
+
+        {/* 필터 */}
+        <Card className="rounded-2xl border-border/40 shadow-sm mb-6">
           <CardContent className="p-5 space-y-4">
             {/* 기간 프리셋 */}
             <div>
               <label className="text-[13px] font-bold text-foreground mb-2 block">기간</label>
               <div className="flex flex-wrap gap-1.5">
-                {datePresets.map(p => (
+                {presets.map(p => (
                   <button
                     key={p.label}
                     onClick={() => {
-                      setStartDate(p.start)
-                      setEndDate(p.end)
+                      if (tab === 'daily') { setStartDate(p.start); setEndDate(p.end) }
+                      else { setStartMonth(p.start); setEndMonth(p.end) }
                       setActivePreset(p.label)
                     }}
                     className={`px-3 py-1.5 rounded-full text-[12px] font-semibold transition-colors ${
@@ -148,21 +214,29 @@ export default function PosDashboardPage() {
               </div>
             </div>
 
-            {/* 일자 */}
+            {/* 날짜/월 입력 */}
             <div>
-              <label className="text-[13px] font-bold text-foreground mb-2 block">일자</label>
+              <label className="text-[13px] font-bold text-foreground mb-2 block">
+                {tab === 'daily' ? '일자' : '월'}
+              </label>
               <div className="flex items-center gap-2">
                 <Input
-                  type="date"
-                  value={startDate}
-                  onChange={e => { setStartDate(e.target.value); setActivePreset(null) }}
+                  type={tab === 'daily' ? 'date' : 'month'}
+                  value={tab === 'daily' ? startDate : startMonth}
+                  onChange={e => {
+                    tab === 'daily' ? setStartDate(e.target.value) : setStartMonth(e.target.value)
+                    setActivePreset(null)
+                  }}
                   className="h-11 text-[14px] rounded-xl flex-1"
                 />
                 <span className="text-[13px] text-muted-foreground shrink-0">~</span>
                 <Input
-                  type="date"
-                  value={endDate}
-                  onChange={e => { setEndDate(e.target.value); setActivePreset(null) }}
+                  type={tab === 'daily' ? 'date' : 'month'}
+                  value={tab === 'daily' ? endDate : endMonth}
+                  onChange={e => {
+                    tab === 'daily' ? setEndDate(e.target.value) : setEndMonth(e.target.value)
+                    setActivePreset(null)
+                  }}
                   className="h-11 text-[14px] rounded-xl flex-1"
                 />
               </div>
@@ -214,7 +288,7 @@ export default function PosDashboardPage() {
               )}
             </div>
 
-            {/* 조회 버튼 */}
+            {/* 조회 */}
             <button
               onClick={handleSearch}
               disabled={loading}
@@ -229,50 +303,83 @@ export default function PosDashboardPage() {
           </CardContent>
         </Card>
 
-        {/* 결과 영역 */}
+        {/* 결과 */}
         {searched && !loading && (
           <>
-            {/* 요약 */}
             <div className="flex items-center justify-between mb-4">
-              <p className="text-[14px] text-muted-foreground">
-                {salesData.length}개 매장
-              </p>
-              <p className="text-[15px] font-bold text-foreground">
-                합계 {formatAmount(totalAmount)} 원
-              </p>
+              <p className="text-[14px] text-muted-foreground">{salesData.length}개 매장</p>
+              <p className="text-[15px] font-bold text-foreground">합계 {fmt(totalAmount)} 원</p>
             </div>
 
-            {/* 테이블 헤더 */}
             {salesData.length > 0 && (
               <Card className="rounded-2xl border-border/40 shadow-sm overflow-hidden">
-                <div className="bg-primary/5 border-b border-primary/10 px-4 py-3 flex items-center">
-                  <span className="text-[12px] font-bold text-primary w-[72px] shrink-0">매장코드</span>
-                  <span className="text-[12px] font-bold text-primary flex-1">매장명</span>
-                  <span className="text-[12px] font-bold text-primary text-right w-[100px] shrink-0">판매금액</span>
-                </div>
+                {/* 헤더 */}
+                {tab === 'daily' ? (
+                  <div className="bg-primary/5 border-b border-primary/10 px-4 py-3 flex items-center">
+                    <span className="text-[12px] font-bold text-primary w-[72px] shrink-0">매장코드</span>
+                    <span className="text-[12px] font-bold text-primary flex-1">매장명</span>
+                    <span className="text-[12px] font-bold text-primary text-right w-[100px] shrink-0">판매금액</span>
+                  </div>
+                ) : (
+                  <div className="bg-primary/5 border-b border-primary/10 px-4 py-3 flex items-center">
+                    <span className="text-[12px] font-bold text-primary w-[56px] shrink-0">코드</span>
+                    <span className="text-[12px] font-bold text-primary flex-1">매장명</span>
+                    <span className="text-[12px] font-bold text-primary text-right w-[80px] shrink-0">카드</span>
+                    <span className="text-[12px] font-bold text-primary text-right w-[80px] shrink-0">현금</span>
+                    <span className="text-[12px] font-bold text-primary text-right w-[90px] shrink-0">합계</span>
+                  </div>
+                )}
 
+                {/* 데이터 행 */}
                 <div className="divide-y divide-border/30">
-                  {salesData.map((d, i) => (
+                  {salesData.map(d => (
                     <div key={d.store_name} className="px-4 py-3.5 flex items-center hover:bg-secondary/30 transition-colors">
-                      <div className="w-[72px] shrink-0">
-                        <span className="text-[13px] text-muted-foreground font-mono">
-                          {d.store_code || '-'}
-                        </span>
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-[14px] font-medium text-foreground truncate">
-                          {d.store_name}
-                        </p>
-                      </div>
-                      <div className="w-[100px] shrink-0 text-right">
-                        <p className="text-[14px] font-bold text-foreground">
-                          {formatAmount(d.total_amount)}
-                        </p>
-                        <p className="text-[11px] text-muted-foreground">원</p>
-                      </div>
+                      {tab === 'daily' ? (
+                        <>
+                          <div className="w-[72px] shrink-0">
+                            <span className="text-[13px] text-muted-foreground font-mono">{d.store_code || '-'}</span>
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-[14px] font-medium text-foreground truncate">{d.store_name}</p>
+                          </div>
+                          <div className="w-[100px] shrink-0 text-right">
+                            <p className="text-[14px] font-bold text-foreground">{fmt(d.total_amount)}</p>
+                            <p className="text-[11px] text-muted-foreground">원</p>
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <div className="w-[56px] shrink-0">
+                            <span className="text-[12px] text-muted-foreground font-mono">{d.store_code || '-'}</span>
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-[13px] font-medium text-foreground truncate">{d.store_name}</p>
+                          </div>
+                          <div className="w-[80px] shrink-0 text-right">
+                            <p className="text-[13px] text-foreground">{fmt(d.total_card)}</p>
+                          </div>
+                          <div className="w-[80px] shrink-0 text-right">
+                            <p className="text-[13px] text-foreground">{fmt(d.total_cash)}</p>
+                          </div>
+                          <div className="w-[90px] shrink-0 text-right">
+                            <p className="text-[13px] font-bold text-foreground">{fmt(d.total_amount)}</p>
+                          </div>
+                        </>
+                      )}
                     </div>
                   ))}
                 </div>
+
+                {/* 월별 합계행 */}
+                {tab === 'monthly' && (
+                  <div className="bg-primary/5 border-t border-primary/10 px-4 py-3 flex items-center">
+                    <div className="w-[56px] shrink-0" />
+                    <div className="flex-1"><p className="text-[13px] font-bold text-primary">합계</p></div>
+                    <div className="w-[80px] shrink-0 text-right"><p className="text-[13px] font-bold text-primary">{fmt(totalCard)}</p></div>
+                    <div className="w-[80px] shrink-0 text-right"><p className="text-[13px] font-bold text-primary">{fmt(totalCash)}</p></div>
+                    <div className="w-[90px] shrink-0 text-right"><p className="text-[13px] font-bold text-primary">{fmt(totalAmount)}</p></div>
+                  </div>
+                )}
               </Card>
             )}
 
