@@ -269,36 +269,60 @@ export default function PosDashboardPage() {
               </div>
             ) : (
               <div>
-                <label className="text-[13px] font-bold text-foreground mb-2 block">{year}년</label>
-                <div className="grid grid-cols-6 gap-1.5">
-                  {[1,2,3,4,5,6,7,8,9,10,11,12].map(m => {
-                    const mv = `${year}-${String(m).padStart(2, '0')}`
-                    const isSelected = startMonth === mv && endMonth === mv
-                    const isInRange = mv >= startMonth && mv <= endMonth && startMonth !== endMonth
-                    return (
-                      <button
-                        key={m}
-                        onClick={() => {
-                          setStartMonth(mv)
-                          setEndMonth(mv)
-                          setActivePreset(null)
-                        }}
-                        className={`py-2 rounded-xl text-[13px] font-semibold transition-colors ${
-                          isSelected
-                            ? 'bg-primary text-white'
-                            : isInRange
-                              ? 'bg-primary/20 text-primary'
-                              : 'bg-primary/5 text-foreground hover:bg-primary/10'
-                        }`}
-                      >
-                        {m}월
-                      </button>
-                    )
-                  })}
+                <label className="text-[13px] font-bold text-foreground mb-2 block">월</label>
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center flex-1 h-11 rounded-xl border border-border/40 bg-background">
+                    <button
+                      onClick={() => {
+                        const [y, m] = startMonth.split('-').map(Number)
+                        const prev = m === 1 ? `${y-1}-12` : `${y}-${String(m-1).padStart(2, '0')}`
+                        setStartMonth(prev)
+                        setActivePreset(null)
+                      }}
+                      className="px-3 h-full text-muted-foreground hover:text-primary transition-colors"
+                    >
+                      <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M9 3L5 7L9 11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                    </button>
+                    <span className="flex-1 text-center text-[14px] font-medium">{startMonth}</span>
+                    <button
+                      onClick={() => {
+                        const [y, m] = startMonth.split('-').map(Number)
+                        const next = m === 12 ? `${y+1}-01` : `${y}-${String(m+1).padStart(2, '0')}`
+                        setStartMonth(next)
+                        setActivePreset(null)
+                      }}
+                      className="px-3 h-full text-muted-foreground hover:text-primary transition-colors"
+                    >
+                      <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M5 3L9 7L5 11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                    </button>
+                  </div>
+                  <span className="text-[13px] text-muted-foreground shrink-0">~</span>
+                  <div className="flex items-center flex-1 h-11 rounded-xl border border-border/40 bg-background">
+                    <button
+                      onClick={() => {
+                        const [y, m] = endMonth.split('-').map(Number)
+                        const prev = m === 1 ? `${y-1}-12` : `${y}-${String(m-1).padStart(2, '0')}`
+                        setEndMonth(prev)
+                        setActivePreset(null)
+                      }}
+                      className="px-3 h-full text-muted-foreground hover:text-primary transition-colors"
+                    >
+                      <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M9 3L5 7L9 11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                    </button>
+                    <span className="flex-1 text-center text-[14px] font-medium">{endMonth}</span>
+                    <button
+                      onClick={() => {
+                        const [y, m] = endMonth.split('-').map(Number)
+                        const next = m === 12 ? `${y+1}-01` : `${y}-${String(m+1).padStart(2, '0')}`
+                        setEndMonth(next)
+                        setActivePreset(null)
+                      }}
+                      className="px-3 h-full text-muted-foreground hover:text-primary transition-colors"
+                    >
+                      <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M5 3L9 7L5 11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                    </button>
+                  </div>
                 </div>
-                <p className="text-[11px] text-muted-foreground mt-2">
-                  선택: {startMonth} ~ {endMonth}
-                </p>
               </div>
             )}
 
