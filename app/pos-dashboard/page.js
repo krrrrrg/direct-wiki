@@ -7,9 +7,28 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Header } from '../../components/shared'
 
 export default function PosDashboardPage() {
-  const today = new Date().toISOString().split('T')[0]
+  const now = new Date()
+  const today = now.toISOString().split('T')[0]
+  const year = now.getFullYear()
+  const month = now.getMonth() // 0-indexed
+
   const [startDate, setStartDate] = useState(today)
   const [endDate, setEndDate] = useState(today)
+
+  const datePresets = [
+    { label: '이번달', start: `${year}-${String(month + 1).padStart(2, '0')}-01`, end: today },
+    { label: '저번달', start: `${month === 0 ? year - 1 : year}-${String(month === 0 ? 12 : month).padStart(2, '0')}-01`, end: `${month === 0 ? year - 1 : year}-${String(month === 0 ? 12 : month).padStart(2, '0')}-${new Date(month === 0 ? year - 1 : year, month === 0 ? 12 : month, 0).getDate()}` },
+    { label: '1분기', start: `${year}-01-01`, end: `${year}-03-31` },
+    { label: '2분기', start: `${year}-04-01`, end: `${year}-06-30` },
+    { label: '3분기', start: `${year}-07-01`, end: `${year}-09-30` },
+    { label: '4분기', start: `${year}-10-01`, end: `${year}-12-31` },
+    { label: '상반기', start: `${year}-01-01`, end: `${year}-06-30` },
+    { label: '하반기', start: `${year}-07-01`, end: `${year}-12-31` },
+    { label: '올해', start: `${year}-01-01`, end: `${year}-12-31` },
+    { label: '전년도', start: `${year - 1}-01-01`, end: `${year - 1}-12-31` },
+  ]
+
+  const [activePreset, setActivePreset] = useState(null)
   const [storeSearch, setStoreSearch] = useState('')
   const [selectedStore, setSelectedStore] = useState(null)
   const [storeList, setStoreList] = useState([])
@@ -105,6 +124,30 @@ export default function PosDashboardPage() {
         {/* 필터 영역 */}
         <Card className="rounded-2xl border-border/40 shadow-sm mt-6 mb-6">
           <CardContent className="p-5 space-y-4">
+            {/* 기간 프리셋 */}
+            <div>
+              <label className="text-[13px] font-bold text-foreground mb-2 block">기간</label>
+              <div className="flex flex-wrap gap-1.5">
+                {datePresets.map(p => (
+                  <button
+                    key={p.label}
+                    onClick={() => {
+                      setStartDate(p.start)
+                      setEndDate(p.end)
+                      setActivePreset(p.label)
+                    }}
+                    className={`px-3 py-1.5 rounded-full text-[12px] font-semibold transition-colors ${
+                      activePreset === p.label
+                        ? 'bg-primary text-white'
+                        : 'bg-primary/10 text-primary hover:bg-primary/20'
+                    }`}
+                  >
+                    {p.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             {/* 일자 */}
             <div>
               <label className="text-[13px] font-bold text-foreground mb-2 block">일자</label>
@@ -112,14 +155,14 @@ export default function PosDashboardPage() {
                 <Input
                   type="date"
                   value={startDate}
-                  onChange={e => setStartDate(e.target.value)}
+                  onChange={e => { setStartDate(e.target.value); setActivePreset(null) }}
                   className="h-11 text-[14px] rounded-xl flex-1"
                 />
                 <span className="text-[13px] text-muted-foreground shrink-0">~</span>
                 <Input
                   type="date"
                   value={endDate}
-                  onChange={e => setEndDate(e.target.value)}
+                  onChange={e => { setEndDate(e.target.value); setActivePreset(null) }}
                   className="h-11 text-[14px] rounded-xl flex-1"
                 />
               </div>
