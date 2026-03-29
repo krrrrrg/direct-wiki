@@ -72,7 +72,7 @@ export default function MonthlyReportPage() {
       let query = supabase.from('daily_sales')
         .select('store_name, sale_date, sale_amount, card_amount, cash_no_receipt, cash_receipt, transfer_amount')
         .gte('sale_date', `${startMonth}-01`)
-        .lte('sale_date', `${endMonth}-31`)
+        .lte('sale_date', (() => { const [ey,em]=endMonth.split('-').map(Number); return `${endMonth}-${String(new Date(ey,em,0).getDate()).padStart(2,'0')}` })())
         .order('sale_date', { ascending: true })
         .range(from, from + PAGE - 1)
       if (selectedStore) query = query.eq('store_name', selectedStore.store_name)

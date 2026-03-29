@@ -143,9 +143,12 @@ export default function PosDashboardPage() {
       ]
     } else {
       if (!startMonth || !endMonth) { setLoading(false); return }
+      // 월말 날짜 계산
+      const [ey, em] = endMonth.split('-').map(Number)
+      const lastDay = new Date(ey, em, 0).getDate()
       filters = [
         { op: 'gte', col: 'sale_date', val: `${startMonth}-01` },
-        { op: 'lte', col: 'sale_date', val: `${endMonth}-31` },
+        { op: 'lte', col: 'sale_date', val: `${endMonth}-${String(lastDay).padStart(2, '0')}` },
       ]
     }
     if (selectedStore) filters.push({ op: 'eq', col: 'store_name', val: selectedStore.store_name })
