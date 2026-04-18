@@ -1,18 +1,14 @@
--- daily_sales에 brand 컬럼 추가 + (brand, store_name, sale_date) 유니크 제약
+-- daily_sales: 엑셀 업로드용 pos_type 정규화 + 유니크 인덱스
+-- 기존 daily_sales에 이미 pos_type 컬럼이 존재하므로 별도 brand 컬럼 없이 pos_type 재사용
 -- Supabase SQL Editor에서 실행
 
--- 1) brand 컬럼 추가 (기존 행은 NULL로 남음)
-ALTER TABLE daily_sales
-  ADD COLUMN IF NOT EXISTS brand text;
+-- 1) 기존 pos_type 값 통일 (돌핀포스/dolphin → 돌핀, xmd → XMD)
+UPDATE daily_sales SET pos_type = '돌핀' WHERE pos_type IN ('돌핀포스', 'dolphin');
+UPDATE daily_sales SET pos_type = 'XMD'  WHERE pos_type = 'xmd';
 
--- 2) 기존 데이터 확인용 (실행 전 중복 체크)
--- 아래 쿼리 결과가 비어있어야 유니크 인덱스 생성 가능
--- SELECT brand, store_name, sale_date, count(*)
--- FROM daily_sales
--- GROUP BY brand, store_name, sale_date
--- HAVING count(*) > 1;
+-- 2) upsert용 유니크 인덱스 (pos_type, store_name, sale_date)
+CREATE UNIQUE INDEX IF NOT EXISTS daily_sales_pos_store_date_uk
+  ON daily_sales (pos_type, store_name, sale_date);
 
--- 3) (brand, store_name, sale_date) 유니크 인덱스
--- PostgreSQL은 NULL을 서로 다른 값으로 취급하므로 기존 brand=NULL 행들은 충돌하지 않음
-CREATE UNIQUE INDEX IF NOT EXISTS daily_sales_brand_store_date_uk
-  ON daily_sales (brand, store_name, sale_date);
+-- 3) 확인: pos_type이 XMD/돌핀 두 값만 남는지
+-- SELECT DISTINCT pos_type FROM daily_sales;

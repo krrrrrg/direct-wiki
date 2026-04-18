@@ -499,12 +499,12 @@ function SalesUploader({ onUploaded }) {
     if (!confirm(`${brand} / ${saleDate} / ${preview.length}개 매장 업로드합니다.\n같은 매장/날짜 있으면 덮어쓰기됩니다. 진행할까요?`)) return
     setUploading(true); setResult(null)
     const records = preview.map(d => ({
-      brand, store_name: d.store_name, sale_date: saleDate,
+      pos_type: brand, store_name: d.store_name, sale_date: saleDate,
       sale_amount: d.sale_amount, card_amount: d.card_amount,
       cash_no_receipt: d.cash_no_receipt, cash_receipt: d.cash_receipt,
       transfer_amount: d.transfer_amount,
     }))
-    const { error } = await supabase.from('daily_sales').upsert(records, { onConflict: 'brand,store_name,sale_date' })
+    const { error } = await supabase.from('daily_sales').upsert(records, { onConflict: 'pos_type,store_name,sale_date' })
     setUploading(false)
     if (error) setResult({ ok: false, msg: error.message })
     else {
