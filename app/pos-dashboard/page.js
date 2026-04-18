@@ -231,6 +231,9 @@ export default function PosDashboardPage() {
       <Header title="매출 대시보드" showBack />
 
       <div className="max-w-[672px] mx-auto px-5 pb-10">
+        {/* 엑셀 업로드 */}
+        <SalesUploader onUploaded={() => { setStoreList([]); setTimeout(() => window.location.reload(), 800) }} />
+
         {/* 탭 */}
         <div className="flex mt-6 mb-4 bg-primary/5 rounded-2xl p-1">
           <button onClick={() => switchTab('daily')} className={`flex-1 py-2.5 rounded-xl text-[14px] font-bold transition-colors ${tab === 'daily' ? 'bg-primary text-white shadow-sm' : 'text-primary'}`}>일별매출</button>
@@ -405,5 +408,239 @@ export default function PosDashboardPage() {
         )}
       </div>
     </main>
+  )
+}
+
+// ==================== 엑셀 업로더 ====================
+function SalesUploader({ onUploaded }) {
+  const [open, setOpen] = useState(false)
+  const [file, setFile] = useState(null)
+  const [brand, setBrand] = useState('')
+  const [saleDate, setSaleDate] = useState('')
+  const [preview, setPreview] = useState([])
+  const [parseError, setParseError] = useState('')
+  const [uploading, setUploading] = useState(false)
+  const [result, setResult] = useState(null)
+
+  function parseFilename(name) {
+    const noExt = name.replace(/\.(xlsx|xls)$/i, '')
+    const m = noExt.match(/^(돌핀|XMD)(\d{4})$/)
+    if (!m) return { brand: '', date: '' }
+    const mm = m[2].slice(0, 2)
+    const dd = m[2].slice(2, 4)
+    const year = new Date().getFullYear()
+    return { brand: m[1], date: `${year}-${mm}-${dd}` }
+  }
+
+  function aggregate(rows, brandName) {
+    const data = rows.slice(1).filter(r => r && r[0] != null && String(r[0]).trim() !== '')
+    if (brandName === '돌핀') {
+      const map = new Map()
+      for (const r of data) {
+        const n = String(r[0]).trim()
+        if (!map.has(n)) map.set(n, { store_name: n, cash_no_receipt: 0, cash_receipt: 0, transfer_amount: 0, card_amount: 0 })
+        const g = map.get(n)
+        g.cash_no_receipt += Number(r[1]) || 0
+        g.cash_receipt += Number(r[2]) || 0
+        g.transfer_amount += Number(r[3]) || 0
+        g.card_amount += Number(r[4]) || 0
+      }
+      return Array.from(map.values()).map(d => ({ ...d, sale_amount: d.card_amount + d.cash_no_receipt + d.cash_receipt + d.transfer_amount }))
+    }
+    if (brandName === 'XMD') {
+      return data.map(r => {
+        const card_amount = Number(r[3]) || 0
+        const cash_no_receipt = Number(r[1]) || 0
+        const cash_receipt = Number(r[2]) || 0
+        return { store_name: String(r[0]).trim(), card_amount, cash_no_receipt, cash_receipt, transfer_amount: 0, sale_amount: card_amount + cash_no_receipt + cash_receipt }
+      })
+    }
+    return []
+  }
+
+  async function handleFile(f) {
+    if (!f) return
+    setResult(null); setParseError(''); setPreview([]); setFile(f)
+    const { brand: fb, date: fd } = parseFilename(f.name)
+    if (fb) setBrand(fb)
+    if (fd) setSaleDate(fd)
+    try {
+      const buf = await f.arrayBuffer()
+      const wb = XLSX.read(buf, { type: 'array' })
+      const ws = wb.Sheets[wb.SheetNames[0]]
+      const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: 0 })
+      const useBrand = fb || brand
+      if (!useBrand) { setParseError('파일명에서 브랜드를 못 읽었어요. 브랜드를 직접 선택해주세요.'); return }
+      const agg = aggregate(rows, useBrand)
+      if (agg.length === 0) { setParseError('파싱된 매장이 없습니다. 엑셀 양식을 확인해주세요.'); return }
+      setPreview(agg)
+    } catch (e) {
+      setParseError(`엑셀 파싱 실패: ${e.message}`)
+    }
+  }
+
+  async function reparse(nextBrand) {
+    setBrand(nextBrand)
+    if (!file || !nextBrand) return
+    try {
+      const buf = await file.arrayBuffer()
+      const wb = XLSX.read(buf, { type: 'array' })
+      const ws = wb.Sheets[wb.SheetNames[0]]
+      const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: 0 })
+      setPreview(aggregate(rows, nextBrand))
+      setParseError('')
+    } catch (e) {
+      setParseError(`엑셀 파싱 실패: ${e.message}`)
+    }
+  }
+
+  async function upload() {
+    if (!brand || !saleDate || preview.length === 0) return
+    if (!confirm(`${brand} / ${saleDate} / ${preview.length}개 매장 업로드합니다.\n같은 매장/날짜 있으면 덮어쓰기됩니다. 진행할까요?`)) return
+    setUploading(true); setResult(null)
+    const records = preview.map(d => ({
+      brand, store_name: d.store_name, sale_date: saleDate,
+      sale_amount: d.sale_amount, card_amount: d.card_amount,
+      cash_no_receipt: d.cash_no_receipt, cash_receipt: d.cash_receipt,
+      transfer_amount: d.transfer_amount,
+    }))
+    const { error } = await supabase.from('daily_sales').upsert(records, { onConflict: 'brand,store_name,sale_date' })
+    setUploading(false)
+    if (error) setResult({ ok: false, msg: error.message })
+    else {
+      setResult({ ok: true, msg: `${records.length}개 매장 업로드 완료` })
+      if (onUploaded) onUploaded()
+    }
+  }
+
+  function reset() {
+    setFile(null); setBrand(''); setSaleDate(''); setPreview([]); setParseError(''); setResult(null)
+  }
+
+  const fmt = (n) => new Intl.NumberFormat('ko-KR').format(n)
+  const totals = preview.reduce((a, d) => ({
+    card: a.card + d.card_amount, cashNo: a.cashNo + d.cash_no_receipt,
+    cashYes: a.cashYes + d.cash_receipt, transfer: a.transfer + d.transfer_amount,
+    total: a.total + d.sale_amount,
+  }), { card: 0, cashNo: 0, cashYes: 0, transfer: 0, total: 0 })
+
+  if (!open) {
+    return (
+      <div className="mt-6">
+        <button
+          onClick={() => setOpen(true)}
+          className="w-full h-11 rounded-2xl border border-dashed border-primary/40 text-primary text-[13px] font-semibold hover:bg-primary/5 transition-colors flex items-center justify-center gap-2"
+        >
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 2V12M2 7H12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
+          엑셀 업로드 (돌핀 / XMD)
+        </button>
+      </div>
+    )
+  }
+
+  return (
+    <Card className="rounded-2xl border-border/40 shadow-sm mt-6">
+      <CardContent className="p-5 space-y-4">
+        <div className="flex items-center justify-between">
+          <p className="text-[15px] font-bold">엑셀 업로드</p>
+          <button onClick={() => { setOpen(false); reset() }} className="text-[12px] font-semibold text-muted-foreground hover:text-foreground">닫기</button>
+        </div>
+
+        <div>
+          <label className="text-[13px] font-semibold mb-2 block">파일 선택</label>
+          <input
+            type="file"
+            accept=".xlsx,.xls"
+            onChange={e => handleFile(e.target.files?.[0])}
+            className="block w-full text-[13px] text-muted-foreground file:mr-3 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-[13px] file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20"
+          />
+          {file && <p className="text-[12px] text-muted-foreground mt-2">선택됨: {file.name}</p>}
+          <p className="text-[11px] text-muted-foreground mt-1">
+            파일명: <code className="font-mono">돌핀0418.xlsx</code> 또는 <code className="font-mono">XMD0418.xlsx</code> (자동 인식)
+          </p>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="text-[13px] font-semibold mb-2 block">브랜드</label>
+            <div className="flex gap-2">
+              {['돌핀', 'XMD'].map(b => (
+                <button key={b} onClick={() => reparse(b)}
+                  className={`flex-1 h-11 rounded-xl text-[14px] font-semibold transition-colors ${brand === b ? 'bg-primary text-white' : 'border border-primary/30 text-primary hover:bg-primary/5'}`}>
+                  {b}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div>
+            <label className="text-[13px] font-semibold mb-2 block">매출일자</label>
+            <Input type="date" value={saleDate} onChange={e => setSaleDate(e.target.value)} className="h-11 text-[14px] rounded-xl" />
+          </div>
+        </div>
+
+        {parseError && (
+          <div className="rounded-xl bg-red-50 border border-red-200 p-3">
+            <p className="text-[13px] text-red-600 font-medium">{parseError}</p>
+          </div>
+        )}
+
+        {result && (
+          <div className={`rounded-xl border p-3 ${result.ok ? 'bg-primary/5 border-primary/30' : 'bg-red-50 border-red-200'}`}>
+            <p className={`text-[13px] font-medium ${result.ok ? 'text-primary' : 'text-red-600'}`}>
+              {result.ok ? '✓ ' : '✗ '}{result.msg}
+            </p>
+          </div>
+        )}
+
+        {preview.length > 0 && (
+          <>
+            <div className="flex items-center justify-between pt-2">
+              <p className="text-[13px] font-bold">미리보기 · {preview.length}개 매장</p>
+              <p className="text-[13px] font-bold text-primary">합계 {fmt(totals.total)}원</p>
+            </div>
+            <div className="rounded-xl border border-border/40 overflow-hidden">
+              <div className="max-h-[320px] overflow-y-auto overflow-x-auto">
+                <table className="w-full text-[12px] min-w-[540px]">
+                  <thead className="bg-primary/5 sticky top-0">
+                    <tr>
+                      <th className="px-3 py-2 text-left font-bold text-primary">매장명</th>
+                      <th className="px-3 py-2 text-right font-bold text-primary">카드</th>
+                      <th className="px-3 py-2 text-right font-bold text-primary">현금(무)</th>
+                      <th className="px-3 py-2 text-right font-bold text-primary">현금영수증</th>
+                      <th className="px-3 py-2 text-right font-bold text-primary">이체</th>
+                      <th className="px-3 py-2 text-right font-bold text-primary">합계</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {preview.map(d => (
+                      <tr key={d.store_name} className="border-t border-border/30">
+                        <td className="px-3 py-2 font-medium">{d.store_name}</td>
+                        <td className="px-3 py-2 text-right">{fmt(d.card_amount)}</td>
+                        <td className="px-3 py-2 text-right">{fmt(d.cash_no_receipt)}</td>
+                        <td className="px-3 py-2 text-right">{fmt(d.cash_receipt)}</td>
+                        <td className="px-3 py-2 text-right">{fmt(d.transfer_amount)}</td>
+                        <td className="px-3 py-2 text-right font-bold">{fmt(d.sale_amount)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </>
+        )}
+
+        <div className="flex gap-2 pt-2">
+          <button onClick={upload} disabled={uploading || !brand || !saleDate || preview.length === 0}
+            className="flex-1 h-12 rounded-2xl bg-primary text-white font-bold text-[15px] hover:opacity-90 transition-opacity disabled:opacity-40">
+            {uploading ? '업로드 중...' : '업로드'}
+          </button>
+          {file && (
+            <button onClick={reset} className="h-12 px-5 rounded-2xl border border-primary/30 text-primary font-semibold text-[14px] hover:bg-primary/5 transition-colors">
+              초기화
+            </button>
+          )}
+        </div>
+      </CardContent>
+    </Card>
   )
 }
