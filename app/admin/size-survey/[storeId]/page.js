@@ -157,6 +157,7 @@ export default function AdminSizeSurveyDetailPage({ params }) {
                       <TableHead className="text-xs">#</TableHead>
                       <TableHead className="text-xs text-center">치수</TableHead>
                       <TableHead className="text-xs">메모</TableHead>
+                      <TableHead className="text-xs text-center">사진</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -167,6 +168,15 @@ export default function AdminSizeSurveyDetailPage({ params }) {
                           {a.measured_width}×{a.measured_height}×{a.measured_qty}
                         </TableCell>
                         <TableCell className="text-xs text-muted-foreground">{a.note || ''}</TableCell>
+                        <TableCell className="text-xs text-center">
+                          {a.photo_url ? (
+                            <a href={a.photo_url} target="_blank" rel="noreferrer">
+                              <img src={a.photo_url} alt="" className="w-16 h-16 object-cover rounded-lg border border-border/40 inline-block" />
+                            </a>
+                          ) : (
+                            <span className="text-muted-foreground">-</span>
+                          )}
+                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>

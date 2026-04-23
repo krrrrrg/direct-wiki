@@ -83,6 +83,8 @@ export default function SizeSurveyPage({ params }) {
       measured_qty: s.measured_qty ?? '',
       note: s.note || '',
       status: 'added',
+      photo: null,
+      photoUrl: s.photo_url || null,
     }))
 
     setRows([...specRows, ...addedRows])
@@ -125,6 +127,8 @@ export default function SizeSurveyPage({ params }) {
         measured_qty: 1,
         note: '',
         status: 'added',
+        photo: null,
+        photoUrl: null,
       },
     ])
   }
@@ -143,15 +147,39 @@ export default function SizeSurveyPage({ params }) {
   const canSubmit =
     totalDecidable > 0 ?
       decidedCount === totalDecidable &&
-      rows.every((r) => (r.kind !== 'added') || (r.measured_width && r.measured_height && r.measured_qty))
+      rows.every((r) => {
+        if (r.kind !== 'added') return true
+        const hasSize = r.measured_width && r.measured_height && r.measured_qty
+        const hasPhoto = !!(r.photo || r.photoUrl)
+        return hasSize && hasPhoto
+      })
     : true
+
+  async function uploadAddedPhoto(file) {
+    const ext = (file.name.split('.').pop() || 'jpg').toLowerCase()
+    const path = `signage-added/${surveyId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`
+    const { error } = await supabase.storage.from('device-survey-photos').upload(path, file, { upsert: false })
+    if (error) throw error
+    const { data } = supabase.storage.from('device-survey-photos').getPublicUrl(path)
+    return data.publicUrl
+  }
 
   async function submit() {
     setSaving(true)
     try {
+      const uploaded = await Promise.all(
+        rows.map(async (r) => {
+          if (r.kind === 'added' && r.photo) {
+            const url = await uploadAddedPhoto(r.photo)
+            return { ...r, photoUrl: url, photo: null }
+          }
+          return r
+        })
+      )
+
       await supabase.from('signage_submissions').delete().eq('survey_id', surveyId)
 
-      const payload = rows.map((r) => {
+      const payload = uploaded.map((r) => {
         if (r.kind === 'spec') {
           return {
             survey_id: surveyId,
@@ -171,6 +199,7 @@ export default function SizeSurveyPage({ params }) {
           measured_height: Number(r.measured_height) || null,
           measured_qty: Number(r.measured_qty) || 1,
           note: r.note || null,
+          photo_url: r.photoUrl || null,
         }
       })
 
@@ -184,6 +213,7 @@ export default function SizeSurveyPage({ params }) {
         .update({ submitted_at: now, submitted_by_name: managerName || null, updated_at: now })
         .eq('id', surveyId)
 
+      setRows(uploaded)
       setSubmittedAt(now)
       setJustSubmitted(true)
       window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -359,43 +389,52 @@ function SpecCard({ row, onStatus, onChange }) {
         </div>
 
         {status === 'modified' && (
-          <div className="mt-3 pt-3 border-t border-border/40 space-y-2">
-            <div className="flex items-center gap-2">
-              <Input
-                type="number"
-                inputMode="numeric"
-                value={row.measured_width ?? ''}
-                onChange={(e) => onChange({ measured_width: e.target.value })}
-                placeholder="가로"
-                className="bg-background"
-              />
-              <span className="text-muted-foreground">×</span>
-              <Input
-                type="number"
-                inputMode="numeric"
-                value={row.measured_height ?? ''}
-                onChange={(e) => onChange({ measured_height: e.target.value })}
-                placeholder="세로"
-                className="bg-background"
-              />
+          <div className="mt-3 pt-3 border-t border-border/40 space-y-3">
+            <div className="rounded-xl bg-secondary/60 px-3 py-2">
+              <p className="text-[11px] font-bold text-muted-foreground mb-0.5">본사 치수</p>
+              <p className="text-sm font-bold font-mono">
+                {spec.width.toLocaleString()} × {spec.height.toLocaleString()} <span className="text-muted-foreground font-normal">mm · 수량 {spec.qty}개</span>
+              </p>
             </div>
-            <div className="flex items-center gap-2">
-              <Input
-                type="number"
-                inputMode="numeric"
-                value={row.measured_qty ?? ''}
-                onChange={(e) => onChange({ measured_qty: e.target.value })}
-                placeholder="수량"
-                className="bg-background w-24"
-              />
-              <span className="text-xs text-muted-foreground">개</span>
-              <Input
-                value={row.note || ''}
-                onChange={(e) => onChange({ note: e.target.value })}
-                placeholder="메모 (선택)"
-                className="bg-background flex-1"
-              />
+            <div>
+              <p className="text-[11px] font-bold text-primary mb-1.5">실측 치수</p>
+              <div className="flex items-center gap-2">
+                <Input
+                  type="number"
+                  inputMode="numeric"
+                  value={row.measured_width ?? ''}
+                  onChange={(e) => onChange({ measured_width: e.target.value })}
+                  placeholder="가로"
+                  className="bg-background"
+                />
+                <span className="text-muted-foreground">×</span>
+                <Input
+                  type="number"
+                  inputMode="numeric"
+                  value={row.measured_height ?? ''}
+                  onChange={(e) => onChange({ measured_height: e.target.value })}
+                  placeholder="세로"
+                  className="bg-background"
+                />
+              </div>
+              <div className="flex items-center gap-2 mt-2">
+                <Input
+                  type="number"
+                  inputMode="numeric"
+                  value={row.measured_qty ?? ''}
+                  onChange={(e) => onChange({ measured_qty: e.target.value })}
+                  placeholder="수량"
+                  className="bg-background w-24"
+                />
+                <span className="text-xs text-muted-foreground">개</span>
+              </div>
             </div>
+            <Input
+              value={row.note || ''}
+              onChange={(e) => onChange({ note: e.target.value })}
+              placeholder="메모 (선택)"
+              className="bg-background"
+            />
           </div>
         )}
 
@@ -428,6 +467,14 @@ function StatusButton({ active, onClick, label, tone }) {
 }
 
 function AddedCard({ row, onChange, onRemove }) {
+  const photoPreview = row.photo ? URL.createObjectURL(row.photo) : row.photoUrl
+
+  function handlePhotoPick(e) {
+    const file = e.target.files?.[0]
+    if (file) onChange({ photo: file, photoUrl: null })
+    e.target.value = ''
+  }
+
   return (
     <Card className="border-primary/40 border-2 rounded-2xl bg-primary/5">
       <CardContent className="p-4">
@@ -478,6 +525,36 @@ function AddedCard({ row, onChange, onRemove }) {
               placeholder="위치 메모 (선택)"
               className="bg-background flex-1"
             />
+          </div>
+
+          <div className="pt-2">
+            <p className="text-[11px] font-bold text-primary mb-1.5">사진 (필수)</p>
+            {photoPreview ? (
+              <div className="relative">
+                <img src={photoPreview} alt="첨부 사진" className="w-full h-48 object-cover rounded-xl border border-border/40" />
+                <button
+                  onClick={() => onChange({ photo: null, photoUrl: null })}
+                  className="absolute top-2 right-2 bg-background/90 backdrop-blur text-xs font-bold px-2.5 py-1 rounded-full border border-border"
+                >
+                  다시 찍기
+                </button>
+              </div>
+            ) : (
+              <label className="block w-full rounded-xl border-2 border-dashed border-primary/40 py-6 text-center cursor-pointer hover:bg-primary/5 transition-colors">
+                <svg className="mx-auto mb-1.5 text-primary" width="28" height="28" viewBox="0 0 24 24" fill="none">
+                  <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/>
+                  <circle cx="12" cy="13" r="4" stroke="currentColor" strokeWidth="1.8"/>
+                </svg>
+                <p className="text-xs font-bold text-primary">광고판 사진 찍기</p>
+                <input
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  onChange={handlePhotoPick}
+                  className="hidden"
+                />
+              </label>
+            )}
           </div>
         </div>
       </CardContent>
