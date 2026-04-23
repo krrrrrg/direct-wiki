@@ -1380,6 +1380,12 @@ function SizeSurveyTab() {
     setTimeout(() => setCopied(''), 1500)
   }
 
+  async function copyIndexLink() {
+    await navigator.clipboard.writeText(`${origin}/size-survey`)
+    setCopied('index')
+    setTimeout(() => setCopied(''), 1500)
+  }
+
   async function copyAllTsv() {
     const tsv = filtered.map(r => `${r.storeName}\t${origin}/size-survey/${r.surveyId}`).join('\n')
     await navigator.clipboard.writeText(tsv)
@@ -1509,10 +1515,16 @@ function SizeSurveyTab() {
         ))}
         <div className="flex-1" />
         <button
+          onClick={copyIndexLink}
+          className="text-[13px] font-bold px-3 py-1.5 rounded-full bg-primary text-white hover:bg-primary/90"
+        >
+          {copied === 'index' ? '복사됨' : '공유 링크 복사'}
+        </button>
+        <button
           onClick={copyAllTsv}
           className="text-[13px] font-bold px-3 py-1.5 rounded-full border border-border hover:bg-secondary"
         >
-          {copied === 'all' ? '복사됨' : '링크 일괄복사'}
+          {copied === 'all' ? '복사됨' : '매장별 링크(TSV)'}
         </button>
         <button
           onClick={exportCsv}
