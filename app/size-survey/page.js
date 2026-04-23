@@ -15,18 +15,35 @@ export default function SizeSurveyIndexPage() {
 
   const load = useCallback(async () => {
     setLoading(true)
-    const [{ data: storeList }, { data: surveys }] = await Promise.all([
+    const [{ data: storeList }, { data: surveys }, { data: subs }] = await Promise.all([
       supabase.from('stores').select('id, name, region, code').order('region').order('name'),
       supabase.from('signage_surveys').select('id, store_id, submitted_at'),
+      supabase.from('signage_submissions').select('survey_id, status'),
     ])
 
     const surveyByStore = new Map()
     for (const s of surveys || []) surveyByStore.set(s.store_id, s)
 
+    const countsBySurvey = new Map()
+    for (const s of subs || []) {
+      if (!countsBySurvey.has(s.survey_id)) countsBySurvey.set(s.survey_id, { match: 0, modified: 0, removed: 0, added: 0 })
+      const c = countsBySurvey.get(s.survey_id)
+      c[s.status] = (c[s.status] || 0) + 1
+    }
+
     const rows = (storeList || [])
       .map(s => {
         const sv = surveyByStore.get(s.id)
-        return sv ? { ...s, surveyId: sv.id, submittedAt: sv.submitted_at } : null
+        if (!sv) return null
+        const c = countsBySurvey.get(sv.id) || { match: 0, modified: 0, removed: 0, added: 0 }
+        const changeCount = (c.modified || 0) + (c.removed || 0) + (c.added || 0)
+        return {
+          ...s,
+          surveyId: sv.id,
+          submittedAt: sv.submitted_at,
+          counts: c,
+          changeCount,
+        }
       })
       .filter(Boolean)
 
@@ -110,9 +127,22 @@ export default function SizeSurveyIndexPage() {
                       </p>
                     </div>
                     {s.submittedAt ? (
-                      <span className="shrink-0 text-[11px] font-bold text-primary bg-primary/10 px-2.5 py-1 rounded-full">
-                        제출완료
-                      </span>
+                      s.changeCount > 0 ? (
+                        <div className="shrink-0 flex flex-col items-end gap-1">
+                          <span className="text-[11px] font-bold text-white bg-primary px-2.5 py-1 rounded-full">
+                            변경 {s.changeCount}건
+                          </span>
+                          <div className="flex gap-1 text-[10px] font-bold">
+                            {s.counts.modified > 0 && <span className="text-primary">수정 {s.counts.modified}</span>}
+                            {s.counts.removed > 0 && <span className="text-destructive">없음 {s.counts.removed}</span>}
+                            {s.counts.added > 0 && <span className="text-primary">추가 {s.counts.added}</span>}
+                          </div>
+                        </div>
+                      ) : (
+                        <span className="shrink-0 text-[11px] font-bold text-muted-foreground bg-muted px-2.5 py-1 rounded-full">
+                          제출완료
+                        </span>
+                      )
                     ) : (
                       <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="shrink-0 text-muted-foreground/50">
                         <path d="M6 12L10 8L6 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
