@@ -62,12 +62,18 @@ console.log(`total surveys now: ${allSurveys.length}`);
 const storeIds = [...bystore.keys()].map(sqlLit).join(',');
 await query(`delete from signage_specs where store_id in (${storeIds})`);
 
-// 3) Insert signage_specs rows. Per user policy: item_type = '사이드광고' for all.
+// 3) Insert signage_specs rows. Per user policy:
+//    - item_type = '사이드광고' for all
+//    - Split qty > 1 into individual qty=1 rows (one card per physical sign in UI)
 const specRows = [];
 for (const { store_id, items } of bystore.values()) {
-  items.forEach((it, idx) => {
-    specRows.push(`(${sqlLit(store_id)}, '사이드광고', ${sqlLit(it.width)}, ${sqlLit(it.height)}, ${sqlLit(it.qty)}, ${idx})`);
-  });
+  let sortOrder = 0;
+  for (const it of items) {
+    const count = Math.max(1, it.qty || 1);
+    for (let k = 0; k < count; k++) {
+      specRows.push(`(${sqlLit(store_id)}, '사이드광고', ${sqlLit(it.width)}, ${sqlLit(it.height)}, 1, ${sortOrder++})`);
+    }
+  }
 }
 
 if (specRows.length === 0) {

@@ -373,7 +373,6 @@ function SpecCard({ row, onStatus, onChange }) {
             <p className="text-base font-bold tracking-tight">
               {spec.width.toLocaleString()} × {spec.height.toLocaleString()} <span className="text-sm font-normal text-muted-foreground">mm</span>
             </p>
-            <p className="text-xs text-muted-foreground">수량 {spec.qty}개</p>
           </div>
           {isActive && (
             <span className={`shrink-0 text-[11px] font-bold px-2 py-0.5 rounded-full ${activeColor}`}>
@@ -393,7 +392,7 @@ function SpecCard({ row, onStatus, onChange }) {
             <div className="rounded-xl bg-secondary/60 px-3 py-2">
               <p className="text-[11px] font-bold text-muted-foreground mb-0.5">본사 치수</p>
               <p className="text-sm font-bold font-mono">
-                {spec.width.toLocaleString()} × {spec.height.toLocaleString()} <span className="text-muted-foreground font-normal">mm · 수량 {spec.qty}개</span>
+                {spec.width.toLocaleString()} × {spec.height.toLocaleString()} <span className="text-muted-foreground font-normal">mm</span>
               </p>
             </div>
             <div>
@@ -416,17 +415,6 @@ function SpecCard({ row, onStatus, onChange }) {
                   placeholder="세로"
                   className="bg-background"
                 />
-              </div>
-              <div className="flex items-center gap-2 mt-2">
-                <Input
-                  type="number"
-                  inputMode="numeric"
-                  value={row.measured_qty ?? ''}
-                  onChange={(e) => onChange({ measured_qty: e.target.value })}
-                  placeholder="수량"
-                  className="bg-background w-24"
-                />
-                <span className="text-xs text-muted-foreground">개</span>
               </div>
             </div>
             <Input

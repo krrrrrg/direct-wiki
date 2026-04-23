@@ -113,13 +113,13 @@ export default function AdminSizeSurveyDetailPage({ params }) {
                 {specs.map((spec, i) => {
                   const sub = subBySpec.get(spec.id)
                   const status = sub?.status
-                  const hqStr = `${spec.width}×${spec.height}×${spec.qty}`
+                  const hqStr = `${spec.width}×${spec.height}`
                   const mStr = !sub ? '-' :
                     status === 'removed' ? '—' :
                     status === 'match' ? hqStr :
-                    `${sub.measured_width ?? '?'}×${sub.measured_height ?? '?'}×${sub.measured_qty ?? '?'}`
+                    `${sub.measured_width ?? '?'}×${sub.measured_height ?? '?'}`
                   const diff = status === 'modified' &&
-                    (sub.measured_width !== spec.width || sub.measured_height !== spec.height || sub.measured_qty !== spec.qty)
+                    (sub.measured_width !== spec.width || sub.measured_height !== spec.height)
                   return (
                     <TableRow key={spec.id} className={diff ? 'bg-primary/5' : status === 'removed' ? 'bg-destructive/5' : ''}>
                       <TableCell className="text-xs text-muted-foreground">{i + 1}</TableCell>
