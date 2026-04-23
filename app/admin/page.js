@@ -15,7 +15,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 export default function AdminPage() {
-  const [tab, setTab] = useState('check') // 'check' | 'login' | 'cash' | 'views' | 'search' | 'notice' | 'sitemap'
+  const [tab, setTab] = useState('check') // 'check' | 'login' | 'cash' | 'views' | 'search' | 'notice' | 'size' | 'sitemap'
 
   return (
     <main className="min-h-screen bg-background">
@@ -89,6 +89,16 @@ export default function AdminPage() {
             </button>
             <button
               className={`text-[14px] font-semibold px-4 py-2.5 border-b-2 transition-colors shrink-0 ${
+                tab === 'size'
+                  ? 'border-primary text-primary'
+                  : 'border-transparent text-muted-foreground hover:text-foreground'
+              }`}
+              onClick={() => setTab('size')}
+            >
+              사이즈 설문
+            </button>
+            <button
+              className={`text-[14px] font-semibold px-4 py-2.5 border-b-2 transition-colors shrink-0 ${
                 tab === 'sitemap'
                   ? 'border-primary text-primary'
                   : 'border-transparent text-muted-foreground hover:text-foreground'
@@ -108,6 +118,7 @@ export default function AdminPage() {
         {tab === 'views' && <GuideViewsTab />}
         {tab === 'search' && <SearchLogTab />}
         {tab === 'notice' && <NoticeManageTab />}
+        {tab === 'size' && <SizeSurveyTab />}
         {tab === 'sitemap' && <SitemapTab />}
       </div>
     </main>
@@ -1297,6 +1308,271 @@ function SitemapTab() {
           </CardContent>
         </Card>
       ))}
+    </div>
+  )
+}
+
+// ==================== 사이즈 설문 탭 ====================
+function SizeSurveyTab() {
+  const [rows, setRows] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [filter, setFilter] = useState('all') // all | pending | done | diff
+  const [copied, setCopied] = useState('')
+
+  const origin = typeof window !== 'undefined' ? window.location.origin : ''
+
+  useEffect(() => {
+    async function load() {
+      setLoading(true)
+      const [{ data: surveys }, { data: stores }, { data: specs }, { data: submissions }] = await Promise.all([
+        supabase.from('signage_surveys').select('id, store_id, submitted_at, submitted_by_name'),
+        supabase.from('stores').select('id, name, region'),
+        supabase.from('signage_specs').select('id, store_id'),
+        supabase.from('signage_submissions').select('survey_id, status'),
+      ])
+
+      const storeById = new Map((stores || []).map(s => [s.id, s]))
+      const specsByStore = new Map()
+      for (const sp of specs || []) {
+        if (!specsByStore.has(sp.store_id)) specsByStore.set(sp.store_id, 0)
+        specsByStore.set(sp.store_id, specsByStore.get(sp.store_id) + 1)
+      }
+      const counts = {}
+      for (const s of submissions || []) {
+        if (!counts[s.survey_id]) counts[s.survey_id] = { match: 0, modified: 0, removed: 0, added: 0 }
+        counts[s.survey_id][s.status] = (counts[s.survey_id][s.status] || 0) + 1
+      }
+
+      const result = (surveys || []).map(sv => {
+        const store = storeById.get(sv.store_id) || {}
+        const c = counts[sv.id] || { match: 0, modified: 0, removed: 0, added: 0 }
+        return {
+          surveyId: sv.id,
+          storeId: sv.store_id,
+          storeName: store.name || '-',
+          region: store.region || '-',
+          hqCount: specsByStore.get(sv.store_id) || 0,
+          submittedAt: sv.submitted_at,
+          submitter: sv.submitted_by_name,
+          ...c,
+          hasDiff: (c.modified || 0) + (c.removed || 0) + (c.added || 0) > 0,
+        }
+      })
+
+      result.sort((a, b) => (a.region || '').localeCompare(b.region || '') || a.storeName.localeCompare(b.storeName))
+      setRows(result)
+      setLoading(false)
+    }
+    load()
+  }, [])
+
+  const filtered = rows.filter(r => {
+    if (filter === 'pending') return !r.submittedAt
+    if (filter === 'done') return !!r.submittedAt
+    if (filter === 'diff') return r.hasDiff
+    return true
+  })
+
+  async function copyOne(row) {
+    const url = `${origin}/size-survey/${row.surveyId}`
+    await navigator.clipboard.writeText(url)
+    setCopied(row.surveyId)
+    setTimeout(() => setCopied(''), 1500)
+  }
+
+  async function copyAllTsv() {
+    const tsv = filtered.map(r => `${r.storeName}\t${origin}/size-survey/${r.surveyId}`).join('\n')
+    await navigator.clipboard.writeText(tsv)
+    setCopied('all')
+    setTimeout(() => setCopied(''), 1500)
+  }
+
+  async function exportCsv() {
+    const [{ data: stores }, { data: specs }, { data: surveys }, { data: subs }] = await Promise.all([
+      supabase.from('stores').select('id, name, region'),
+      supabase.from('signage_specs').select('*'),
+      supabase.from('signage_surveys').select('id, store_id, submitted_at, submitted_by_name'),
+      supabase.from('signage_submissions').select('*'),
+    ])
+
+    const storeById = new Map((stores || []).map(s => [s.id, s]))
+    const specById = new Map((specs || []).map(s => [s.id, s]))
+    const specsByStore = new Map()
+    for (const sp of specs || []) {
+      if (!specsByStore.has(sp.store_id)) specsByStore.set(sp.store_id, [])
+      specsByStore.get(sp.store_id).push(sp)
+    }
+    const surveyById = new Map((surveys || []).map(s => [s.id, s]))
+    const subsBySurvey = new Map()
+    for (const s of subs || []) {
+      if (!subsBySurvey.has(s.survey_id)) subsBySurvey.set(s.survey_id, [])
+      subsBySurvey.get(s.survey_id).push(s)
+    }
+
+    const header = ['지역', '매장명', '제출여부', '제출자', '제출일', '항목유형', '가로(본사)', '세로(본사)', '수량(본사)', '상태', '가로(측정)', '세로(측정)', '수량(측정)', '발주가로', '발주세로', '발주수량', '메모']
+    const lines = [header.join(',')]
+
+    for (const sv of surveys || []) {
+      const store = storeById.get(sv.store_id)
+      if (!store) continue
+      const submissionsForSurvey = subsBySurvey.get(sv.id) || []
+      const subBySpec = new Map()
+      const addedSubs = []
+      for (const s of submissionsForSurvey) {
+        if (s.spec_id) subBySpec.set(s.spec_id, s)
+        else if (s.status === 'added') addedSubs.push(s)
+      }
+
+      const specsForStore = specsByStore.get(sv.store_id) || []
+      for (const spec of specsForStore) {
+        const sub = subBySpec.get(spec.id)
+        const status = sub?.status || '미제출'
+        const orderW = status === 'removed' ? '' : (status === 'modified' ? sub?.measured_width : spec.width)
+        const orderH = status === 'removed' ? '' : (status === 'modified' ? sub?.measured_height : spec.height)
+        const orderQ = status === 'removed' ? '' : (status === 'modified' ? sub?.measured_qty : spec.qty)
+        lines.push([
+          store.region || '',
+          store.name || '',
+          sv.submitted_at ? '제출완료' : '미제출',
+          sv.submitted_by_name || '',
+          sv.submitted_at ? new Date(sv.submitted_at).toLocaleString('ko-KR') : '',
+          spec.item_type,
+          spec.width, spec.height, spec.qty,
+          status,
+          sub?.measured_width ?? '',
+          sub?.measured_height ?? '',
+          sub?.measured_qty ?? '',
+          orderW ?? '', orderH ?? '', orderQ ?? '',
+          (sub?.note || '').replace(/"/g, '""'),
+        ].map(v => {
+          const s = String(v ?? '')
+          return /[,"\n]/.test(s) ? `"${s}"` : s
+        }).join(','))
+      }
+
+      for (const add of addedSubs) {
+        lines.push([
+          store.region || '',
+          store.name || '',
+          sv.submitted_at ? '제출완료' : '미제출',
+          sv.submitted_by_name || '',
+          sv.submitted_at ? new Date(sv.submitted_at).toLocaleString('ko-KR') : '',
+          '사이드광고(추가)', '', '', '',
+          'added',
+          add.measured_width ?? '',
+          add.measured_height ?? '',
+          add.measured_qty ?? '',
+          add.measured_width ?? '', add.measured_height ?? '', add.measured_qty ?? '',
+          (add.note || '').replace(/"/g, '""'),
+        ].map(v => {
+          const s = String(v ?? '')
+          return /[,"\n]/.test(s) ? `"${s}"` : s
+        }).join(','))
+      }
+    }
+
+    const csv = '\uFEFF' + lines.join('\n')
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `사이즈설문_${new Date().toISOString().slice(0, 10)}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  if (loading) return <div className="text-center py-10 text-muted-foreground text-sm">불러오는 중…</div>
+
+  const stats = {
+    all: rows.length,
+    done: rows.filter(r => r.submittedAt).length,
+    pending: rows.filter(r => !r.submittedAt).length,
+    diff: rows.filter(r => r.hasDiff).length,
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap gap-2">
+        {[
+          { key: 'all', label: `전체 ${stats.all}` },
+          { key: 'pending', label: `미제출 ${stats.pending}` },
+          { key: 'done', label: `제출완료 ${stats.done}` },
+          { key: 'diff', label: `불일치 ${stats.diff}` },
+        ].map(f => (
+          <button
+            key={f.key}
+            onClick={() => setFilter(f.key)}
+            className={`text-[13px] font-bold px-3 py-1.5 rounded-full border transition-colors ${filter === f.key ? 'bg-primary text-white border-primary' : 'bg-card text-foreground border-border hover:bg-secondary'}`}
+          >
+            {f.label}
+          </button>
+        ))}
+        <div className="flex-1" />
+        <button
+          onClick={copyAllTsv}
+          className="text-[13px] font-bold px-3 py-1.5 rounded-full border border-border hover:bg-secondary"
+        >
+          {copied === 'all' ? '복사됨' : '링크 일괄복사'}
+        </button>
+        <button
+          onClick={exportCsv}
+          className="text-[13px] font-bold px-3 py-1.5 rounded-full border border-primary text-primary hover:bg-primary/10"
+        >
+          CSV 내보내기
+        </button>
+      </div>
+
+      <Card className="border-border/40 rounded-2xl">
+        <CardContent className="p-0 overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="text-xs">지역</TableHead>
+                <TableHead className="text-xs">매장</TableHead>
+                <TableHead className="text-xs text-center">본사</TableHead>
+                <TableHead className="text-xs text-center">동일</TableHead>
+                <TableHead className="text-xs text-center">수정</TableHead>
+                <TableHead className="text-xs text-center">없음</TableHead>
+                <TableHead className="text-xs text-center">추가</TableHead>
+                <TableHead className="text-xs">제출</TableHead>
+                <TableHead className="text-xs text-right">작업</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filtered.map(row => (
+                <TableRow key={row.surveyId}>
+                  <TableCell className="text-xs text-muted-foreground">{row.region}</TableCell>
+                  <TableCell className="text-sm font-semibold">
+                    <a href={`/admin/size-survey/${row.storeId}`} className="hover:text-primary">{row.storeName}</a>
+                  </TableCell>
+                  <TableCell className="text-xs text-center">{row.hqCount}</TableCell>
+                  <TableCell className="text-xs text-center">{row.match || ''}</TableCell>
+                  <TableCell className="text-xs text-center text-primary font-bold">{row.modified || ''}</TableCell>
+                  <TableCell className="text-xs text-center text-destructive font-bold">{row.removed || ''}</TableCell>
+                  <TableCell className="text-xs text-center text-primary font-bold">{row.added || ''}</TableCell>
+                  <TableCell className="text-xs">
+                    {row.submittedAt ? (
+                      <span className="inline-block bg-primary/10 text-primary px-2 py-0.5 rounded-full font-bold">
+                        {new Date(row.submittedAt).toLocaleDateString('ko-KR')}
+                      </span>
+                    ) : (
+                      <span className="text-muted-foreground">미제출</span>
+                    )}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <button
+                      onClick={() => copyOne(row)}
+                      className="text-xs font-bold text-primary hover:underline"
+                    >
+                      {copied === row.surveyId ? '복사됨' : '링크복사'}
+                    </button>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
     </div>
   )
 }
