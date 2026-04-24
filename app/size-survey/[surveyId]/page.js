@@ -692,7 +692,7 @@ function DesignPicker({ value, onChange, designs, hideLabel = false, compact = f
         <option value="">시안 선택</option>
         {designs.map((d) => (
           <option key={d.code} value={d.code}>
-            {d.code === 'KEEP' ? '유지 (발주 제외)' : `${d.code} · ${d.label}`}
+            {d.code === 'KEEP' ? '유지 (발주 제외)' : d.code === 'WHITE' ? '흰천 시공' : `${d.code} · ${d.label}`}
           </option>
         ))}
       </select>
@@ -702,8 +702,8 @@ function DesignPicker({ value, onChange, designs, hideLabel = false, compact = f
         </div>
       )}
       {selected && !selected.image_url && (
-        <div className={`mt-2 rounded-xl bg-muted/40 px-2 py-2 text-[10px] text-muted-foreground text-center flex items-center justify-center ${compact ? 'h-20' : 'h-28'}`}>
-          유지 — 발주 제외
+        <div className={`mt-2 rounded-xl bg-muted/40 px-2 py-2 text-[11px] font-bold text-muted-foreground text-center flex items-center justify-center ${compact ? 'h-20' : 'h-28'}`}>
+          {selected.code === 'KEEP' ? '유지 — 발주 제외' : selected.label}
         </div>
       )}
     </div>
