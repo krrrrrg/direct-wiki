@@ -14,6 +14,21 @@ const STATUS_LABELS = {
   added: '추가',
 }
 
+const STICKER_INSTRUCTION = {
+  '지우기': {
+    title: '유리 시트지 작업 안내',
+    body: '매장 유리 시트지 중 "냄새까지 바꾸는 선택" 문구 부분을 칼로 떼어주세요.',
+  },
+  '선택을지우기': {
+    title: '유리 시트지 작업 안내',
+    body: '매장 유리 시트지 문구 중 "선택" 글자만 칼로 떼어주세요.',
+  },
+  '스티커작업요청': {
+    title: '별도 스티커 작업 요청',
+    body: '스티커 관련 별도 작업 요청이 있습니다. 경영지원으로 문의 부탁드려요.',
+  },
+}
+
 export default function SizeSurveyPage({ params }) {
   const { surveyId } = use(params)
   const [loading, setLoading] = useState(true)
@@ -26,6 +41,7 @@ export default function SizeSurveyPage({ params }) {
   const [saving, setSaving] = useState(false)
   const [justSubmitted, setJustSubmitted] = useState(false)
   const [activeImage, setActiveImage] = useState(0)
+  const [stickerInstruction, setStickerInstruction] = useState(null)
 
   const fetchAll = useCallback(async () => {
     setLoading(true)
@@ -44,15 +60,17 @@ export default function SizeSurveyPage({ params }) {
     setSubmittedAt(survey.submitted_at)
     setManagerName(survey.submitted_by_name || '')
 
-    const [{ data: storeData }, { data: specsData }, { data: imgs }, { data: subs }] = await Promise.all([
+    const [{ data: storeData }, { data: specsData }, { data: imgs }, { data: subs }, { data: sticker }] = await Promise.all([
       supabase.from('stores').select('id, name, region').eq('id', survey.store_id).single(),
       supabase.from('signage_specs').select('*').eq('store_id', survey.store_id).order('sort_order'),
       supabase.from('signage_reference_images').select('image_url, sort_order').eq('store_id', survey.store_id).order('sort_order'),
       supabase.from('signage_submissions').select('*').eq('survey_id', survey.id),
+      supabase.from('signage_sticker_instructions').select('tag, excel_phrase').eq('store_id', survey.store_id).maybeSingle(),
     ])
 
     setStore(storeData)
     setImages(imgs || [])
+    setStickerInstruction(sticker || null)
 
     const subBySpec = new Map()
     const addedExisting = []
@@ -358,6 +376,30 @@ export default function SizeSurveyPage({ params }) {
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
           본사에 없는 항목 추가
         </button>
+
+        {stickerInstruction && STICKER_INSTRUCTION[stickerInstruction.tag] && (
+          <div className="mt-6 rounded-2xl border-2 border-destructive/30 bg-destructive/5 p-4">
+            <div className="flex items-start gap-2.5">
+              <div className="shrink-0 w-7 h-7 rounded-full bg-destructive/15 text-destructive flex items-center justify-center">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                  <path d="M12 2L2 22h20L12 2z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round"/>
+                  <path d="M12 10v5M12 18h.01" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                </svg>
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-bold text-destructive mb-1">⚠️ {STICKER_INSTRUCTION[stickerInstruction.tag].title}</p>
+                <p className="text-[13px] leading-relaxed text-foreground">
+                  {STICKER_INSTRUCTION[stickerInstruction.tag].body}
+                </p>
+                {stickerInstruction.excel_phrase && (
+                  <p className="mt-2 text-[11px] text-muted-foreground">
+                    ※ 본사 확인 문구: <span className="font-mono">"{stickerInstruction.excel_phrase}"</span>
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
 
         <div className="mt-8 pb-6">
           <label className="block text-xs font-bold text-muted-foreground mb-2">매니저 이름 (선택)</label>
