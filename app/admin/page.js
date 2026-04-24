@@ -1514,6 +1514,14 @@ function SizeSurveyTab() {
           </button>
         ))}
         <div className="flex-1" />
+        <a
+          href="/size-survey?review=1"
+          target="_blank"
+          rel="noreferrer"
+          className="text-[13px] font-bold px-3 py-1.5 rounded-full border-2 border-primary text-primary hover:bg-primary/10"
+        >
+          검토 모드 열기
+        </a>
         <button
           onClick={copyIndexLink}
           className="text-[13px] font-bold px-3 py-1.5 rounded-full bg-primary text-white hover:bg-primary/90"

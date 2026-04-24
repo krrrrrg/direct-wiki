@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 import { supabase } from '../../lib/supabase'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
@@ -11,17 +12,20 @@ const EXCLUDED_REGIONS = new Set(['제주'])
 const EXCLUDED_REASON = '다른 시공업체'
 
 export default function SizeSurveyIndexPage() {
+  const searchParams = useSearchParams()
+  const reviewMode = searchParams?.get('review') === '1'
   const [stores, setStores] = useState([])
   const [excluded, setExcluded] = useState([])
   const [search, setSearch] = useState('')
   const [loading, setLoading] = useState(true)
   const [stats, setStats] = useState({ done: 0, total: 0 })
+  const [reviewedFilter, setReviewedFilter] = useState('all') // all | unreviewed | reviewed
 
   const load = useCallback(async () => {
     setLoading(true)
     const [{ data: storeList }, { data: surveys }, { data: subs }] = await Promise.all([
       supabase.from('stores').select('id, name, region, code').order('region').order('name'),
-      supabase.from('signage_surveys').select('id, store_id, submitted_at'),
+      supabase.from('signage_surveys').select('id, store_id, submitted_at, reviewed_at, reviewed_by'),
       supabase.from('signage_submissions').select('survey_id, status'),
     ])
 
@@ -50,6 +54,8 @@ export default function SizeSurveyIndexPage() {
         ...s,
         surveyId: sv.id,
         submittedAt: sv.submitted_at,
+        reviewedAt: sv.reviewed_at,
+        reviewedBy: sv.reviewed_by,
         counts: c,
         changeCount,
       })
@@ -63,6 +69,19 @@ export default function SizeSurveyIndexPage() {
   }, [])
 
   useEffect(() => { load() }, [load])
+
+  async function toggleReview(storeId, surveyId, currentlyReviewed) {
+    const payload = currentlyReviewed
+      ? { reviewed_at: null, reviewed_by: null }
+      : { reviewed_at: new Date().toISOString(), reviewed_by: '경영지원' }
+    setStores(prev => prev.map(s => s.surveyId === surveyId ? { ...s, reviewedAt: payload.reviewed_at, reviewedBy: payload.reviewed_by } : s))
+    const { error } = await supabase.from('signage_surveys').update(payload).eq('id', surveyId)
+    if (error) {
+      // revert on failure
+      setStores(prev => prev.map(s => s.surveyId === surveyId ? { ...s, reviewedAt: currentlyReviewed ? new Date().toISOString() : null } : s))
+      alert('저장 실패: ' + error.message)
+    }
+  }
 
   const q = search.trim().toLowerCase()
   const matches = (s) =>
@@ -129,9 +148,51 @@ export default function SizeSurveyIndexPage() {
           </div>
         ) : (
           <div className="space-y-2">
-            {filtered.map(s => (
-              <Link key={s.id} href={`/size-survey/${s.surveyId}`} className="block">
-                <Card className="cursor-pointer border-border/40 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-150 rounded-2xl">
+            {reviewMode && (
+              <div className="mb-4 rounded-2xl bg-primary/10 border border-primary/30 px-4 py-3">
+                <p className="text-xs font-bold text-primary mb-1">👔 경영지원 검토 모드</p>
+                <p className="text-[11px] text-muted-foreground leading-relaxed">
+                  각 매장 카드의 체크 버튼으로 확인 여부를 기록할 수 있어요. (확인: {filtered.filter(s => s.reviewedAt).length} / {filtered.length})
+                </p>
+              </div>
+            )}
+            {filtered.map(s => {
+              const badge = s.submittedAt ? (
+                s.changeCount > 0 ? (
+                  <div className="shrink-0 flex flex-col items-end gap-1">
+                    <span className="text-[11px] font-bold text-white bg-primary px-2.5 py-1 rounded-full">
+                      변경 {s.changeCount}건
+                    </span>
+                    <div className="flex gap-1 text-[10px] font-bold">
+                      {s.counts.modified > 0 && <span className="text-primary">수정 {s.counts.modified}</span>}
+                      {s.counts.removed > 0 && <span className="text-destructive">없음 {s.counts.removed}</span>}
+                      {s.counts.added > 0 && <span className="text-primary">추가 {s.counts.added}</span>}
+                    </div>
+                  </div>
+                ) : (
+                  <span className="shrink-0 text-[11px] font-bold text-muted-foreground bg-muted px-2.5 py-1 rounded-full">
+                    제출완료
+                  </span>
+                )
+              ) : (
+                !reviewMode && (
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="shrink-0 text-muted-foreground/50">
+                    <path d="M6 12L10 8L6 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                )
+              )
+              const reviewBtn = reviewMode ? (
+                <button
+                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); toggleReview(s.id, s.surveyId, !!s.reviewedAt) }}
+                  className={`shrink-0 w-10 h-10 rounded-xl flex items-center justify-center border-2 transition-colors ${s.reviewedAt ? 'bg-primary border-primary text-white' : 'bg-background border-border text-muted-foreground hover:bg-secondary'}`}
+                  title={s.reviewedAt ? '경영지원 확인됨 (클릭해서 해제)' : '경영지원 확인 체크'}
+                >
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M5 12l5 5L20 7" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                </button>
+              ) : null
+
+              const cardInner = (
+                <Card className={`cursor-pointer border-border/40 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-150 rounded-2xl ${reviewMode && s.reviewedAt ? 'bg-primary/5' : ''}`}>
                   <CardContent className="p-4 flex items-center gap-3">
                     <div className="shrink-0 w-10 h-10 rounded-xl flex items-center justify-center bg-primary/10">
                       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" className="text-primary">
@@ -145,32 +206,18 @@ export default function SizeSurveyIndexPage() {
                         {s.region || ''}{s.code ? ` · ${s.code}` : ''}
                       </p>
                     </div>
-                    {s.submittedAt ? (
-                      s.changeCount > 0 ? (
-                        <div className="shrink-0 flex flex-col items-end gap-1">
-                          <span className="text-[11px] font-bold text-white bg-primary px-2.5 py-1 rounded-full">
-                            변경 {s.changeCount}건
-                          </span>
-                          <div className="flex gap-1 text-[10px] font-bold">
-                            {s.counts.modified > 0 && <span className="text-primary">수정 {s.counts.modified}</span>}
-                            {s.counts.removed > 0 && <span className="text-destructive">없음 {s.counts.removed}</span>}
-                            {s.counts.added > 0 && <span className="text-primary">추가 {s.counts.added}</span>}
-                          </div>
-                        </div>
-                      ) : (
-                        <span className="shrink-0 text-[11px] font-bold text-muted-foreground bg-muted px-2.5 py-1 rounded-full">
-                          제출완료
-                        </span>
-                      )
-                    ) : (
-                      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="shrink-0 text-muted-foreground/50">
-                        <path d="M6 12L10 8L6 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                      </svg>
-                    )}
+                    {badge}
+                    {reviewBtn}
                   </CardContent>
                 </Card>
-              </Link>
-            ))}
+              )
+
+              return (
+                <Link key={s.id} href={`/size-survey/${s.surveyId}${reviewMode ? '?review=1' : ''}`} className="block">
+                  {cardInner}
+                </Link>
+              )
+            })}
 
             {filteredExcluded.length > 0 && (
               <div className="pt-6">
