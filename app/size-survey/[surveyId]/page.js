@@ -175,11 +175,12 @@ function SizeSurveyInner({ params }) {
   }
 
   async function toggleOrderTarget(specId, nextValue) {
-    setRows((prev) => prev.map((r) =>
-      r.kind === 'spec' && r.spec?.id === specId
-        ? { ...r, spec: { ...r.spec, is_order_target: nextValue }, status: nextValue ? r.status : null }
-        : r
-    ))
+    setRows((prev) => prev.map((r) => {
+      if (r.kind !== 'spec' || r.spec?.id !== specId) return r
+      const patch = { ...r, spec: { ...r.spec, is_order_target: nextValue }, status: nextValue ? r.status : null }
+      if (nextValue && r.designCode === 'KEEP') patch.designCode = null
+      return patch
+    }))
     const { error } = await supabase.from('signage_specs').update({ is_order_target: nextValue }).eq('id', specId)
     if (error) {
       alert('저장 실패: ' + error.message)
@@ -641,14 +642,12 @@ function ExcludedCard({ row, reviewMode, designTypes, onToggleOrderTarget }) {
           </p>
           <p className="text-[10px] text-muted-foreground">유지 · 이번 발주 제외</p>
         </div>
-        {reviewMode && (
-          <button
-            onClick={onToggleOrderTarget}
-            className="shrink-0 text-[11px] font-bold text-primary border border-primary/40 px-2.5 py-1 rounded-full hover:bg-primary/10"
-          >
-            발주 포함으로 복원
-          </button>
-        )}
+        <button
+          onClick={onToggleOrderTarget}
+          className="shrink-0 text-[11px] font-bold text-primary border border-primary/40 px-2.5 py-1 rounded-full hover:bg-primary/10"
+        >
+          되돌리기
+        </button>
       </CardContent>
     </Card>
   )
