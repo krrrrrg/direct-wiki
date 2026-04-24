@@ -438,6 +438,7 @@ function SizeSurveyInner({ params }) {
                   key={row.spec.id}
                   row={row}
                   reviewMode={reviewMode}
+                  designTypes={designTypes}
                   onToggleOrderTarget={() => toggleOrderTarget(row.spec.id, !row.spec.is_order_target)}
                 />
               ))}
@@ -596,14 +597,27 @@ function SpecCard({ row, reviewMode, designTypes, onStatus, onChange, onToggleOr
           </div>
         )}
 
-        {isActive && (
-          <div className="mt-3 pt-3 border-t border-border/40 space-y-3">
-            <DesignPicker
-              value={row.designCode}
-              onChange={(code) => onChange({ designCode: code })}
-              designs={designTypes}
-            />
-            <PhotoPicker photo={row.photo} photoUrl={row.photoUrl} onChange={onChange} compact />
+        {isActive && status !== 'removed' && (
+          <div className="mt-3 pt-3 border-t border-border/40">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <p className="text-[11px] font-bold text-muted-foreground mb-1.5">현재 시안</p>
+                <PhotoPicker photo={row.photo} photoUrl={row.photoUrl} onChange={onChange} label={null} compact vertical />
+              </div>
+              <div>
+                <p className="text-[11px] font-bold text-muted-foreground mb-1.5">변경 예정 시안</p>
+                <DesignPicker
+                  value={row.designCode}
+                  onChange={(code) => {
+                    onChange({ designCode: code })
+                    if (code === 'KEEP' && onToggleOrderTarget) onToggleOrderTarget()
+                  }}
+                  designs={designTypes}
+                  hideLabel
+                  compact
+                />
+              </div>
+            </div>
           </div>
         )}
       </CardContent>
@@ -611,7 +625,7 @@ function SpecCard({ row, reviewMode, designTypes, onStatus, onChange, onToggleOr
   )
 }
 
-function ExcludedCard({ row, reviewMode, onToggleOrderTarget }) {
+function ExcludedCard({ row, reviewMode, designTypes, onToggleOrderTarget }) {
   const { spec } = row
   return (
     <Card className="border-border/30 rounded-2xl opacity-60 bg-muted/30">
@@ -653,43 +667,44 @@ function StatusButton({ active, onClick, label, tone }) {
   )
 }
 
-function DesignPicker({ value, onChange, designs }) {
+function DesignPicker({ value, onChange, designs, hideLabel = false, compact = false }) {
   if (!designs || designs.length === 0) return null
   const selected = designs.find((d) => d.code === value)
+  const imgClass = compact
+    ? (selected?.orientation === 'H' ? 'h-32' : 'h-20')
+    : (selected?.orientation === 'H' ? 'h-40' : 'h-28')
   return (
     <div>
-      <p className="text-[11px] font-bold text-muted-foreground mb-1.5">시안 종류 (선택)</p>
+      {!hideLabel && (
+        <p className="text-[11px] font-bold text-muted-foreground mb-1.5">변경 예정 시안</p>
+      )}
       <select
         value={value || ''}
         onChange={(e) => onChange(e.target.value || null)}
-        className="w-full h-10 px-3 rounded-xl border border-border bg-background text-sm"
+        className="w-full h-10 px-2 rounded-xl border border-border bg-background text-[13px]"
       >
-        <option value="">시안 선택 안 함</option>
+        <option value="">시안 선택</option>
         {designs.map((d) => (
           <option key={d.code} value={d.code}>
-            {d.code} · {d.label}
+            {d.code === 'KEEP' ? '유지 (발주 제외)' : `${d.code} · ${d.label}`}
           </option>
         ))}
       </select>
       {selected && selected.image_url && (
         <div className="mt-2 flex items-center justify-center bg-muted/40 rounded-xl p-2">
-          <img
-            src={selected.image_url}
-            alt={selected.label}
-            className={`object-contain ${selected.orientation === 'H' ? 'h-40' : 'h-28'}`}
-          />
+          <img src={selected.image_url} alt={selected.label} className={`object-contain ${imgClass}`} />
         </div>
       )}
       {selected && !selected.image_url && (
-        <div className="mt-2 rounded-xl bg-muted/40 px-3 py-2 text-[11px] text-muted-foreground text-center">
-          참고 이미지 없음 · 현재 교체 대상 시안
+        <div className={`mt-2 rounded-xl bg-muted/40 px-2 py-2 text-[10px] text-muted-foreground text-center flex items-center justify-center ${compact ? 'h-20' : 'h-28'}`}>
+          유지 — 발주 제외
         </div>
       )}
     </div>
   )
 }
 
-function PhotoPicker({ photo, photoUrl, onChange, label = '사진 (선택)', compact = false }) {
+function PhotoPicker({ photo, photoUrl, onChange, label = '사진 (선택)', compact = false, vertical = false }) {
   const preview = photo ? URL.createObjectURL(photo) : photoUrl
 
   function handlePhotoPick(e) {
@@ -737,12 +752,16 @@ function PhotoPicker({ photo, photoUrl, onChange, label = '사진 (선택)', com
     }
   }
 
+  const gridClass = vertical ? 'grid grid-cols-1 gap-2' : 'grid grid-cols-2 gap-2'
+  const heightClass = compact ? 'h-32' : 'h-48'
   return (
     <div onPaste={handlePasteEvent}>
-      <p className="text-[11px] font-bold text-muted-foreground mb-1.5">{label}</p>
+      {label && (
+        <p className="text-[11px] font-bold text-muted-foreground mb-1.5">{label}</p>
+      )}
       {preview ? (
         <div className="relative">
-          <img src={preview} alt="첨부 사진" className={`w-full object-cover rounded-xl border border-border/40 ${compact ? 'h-32' : 'h-48'}`} />
+          <img src={preview} alt="첨부 사진" className={`w-full object-cover rounded-xl border border-border/40 ${heightClass}`} />
           <button
             type="button"
             onClick={() => onChange({ photo: null, photoUrl: null })}
@@ -752,7 +771,7 @@ function PhotoPicker({ photo, photoUrl, onChange, label = '사진 (선택)', com
           </button>
         </div>
       ) : (
-        <div className="grid grid-cols-2 gap-2">
+        <div className={gridClass}>
           <label className="block rounded-xl border-2 border-dashed border-primary/40 py-3 text-center cursor-pointer hover:bg-primary/5 transition-colors">
             <svg className="mx-auto mb-1 text-primary" width="20" height="20" viewBox="0 0 24 24" fill="none">
               <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/>
@@ -831,16 +850,21 @@ function AddedCard({ row, designTypes, onChange, onRemove }) {
             />
           </div>
 
-          <div className="pt-2">
-            <DesignPicker
-              value={row.designCode}
-              onChange={(code) => onChange({ designCode: code })}
-              designs={designTypes}
-            />
-          </div>
-
-          <div className="pt-2">
-            <PhotoPicker photo={row.photo} photoUrl={row.photoUrl} onChange={onChange} label="사진 (필수)" />
+          <div className="pt-2 grid grid-cols-2 gap-3">
+            <div>
+              <p className="text-[11px] font-bold text-muted-foreground mb-1.5">현재 시안 (필수)</p>
+              <PhotoPicker photo={row.photo} photoUrl={row.photoUrl} onChange={onChange} label={null} compact vertical />
+            </div>
+            <div>
+              <p className="text-[11px] font-bold text-muted-foreground mb-1.5">변경 예정 시안</p>
+              <DesignPicker
+                value={row.designCode}
+                onChange={(code) => onChange({ designCode: code })}
+                designs={designTypes}
+                hideLabel
+                compact
+              />
+            </div>
           </div>
         </div>
       </CardContent>
