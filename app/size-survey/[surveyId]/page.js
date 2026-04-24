@@ -238,32 +238,34 @@ function SizeSurveyInner({ params }) {
 
       await supabase.from('signage_submissions').delete().eq('survey_id', surveyId)
 
-      const payload = uploaded.map((r) => {
-        if (r.kind === 'spec') {
+      const payload = uploaded
+        .filter((r) => r.kind === 'added' || !!r.status)  // skip excluded specs (no status)
+        .map((r) => {
+          if (r.kind === 'spec') {
+            return {
+              survey_id: surveyId,
+              spec_id: r.spec.id,
+              status: r.status,
+              measured_width: r.status === 'removed' ? null : Number(r.measured_width) || null,
+              measured_height: r.status === 'removed' ? null : Number(r.measured_height) || null,
+              measured_qty: r.status === 'removed' ? 0 : Number(r.measured_qty) || 0,
+              note: r.note || null,
+              photo_url: r.photoUrl || null,
+              design_code: r.designCode || null,
+            }
+          }
           return {
             survey_id: surveyId,
-            spec_id: r.spec.id,
-            status: r.status,
-            measured_width: r.status === 'removed' ? null : Number(r.measured_width) || null,
-            measured_height: r.status === 'removed' ? null : Number(r.measured_height) || null,
-            measured_qty: r.status === 'removed' ? 0 : Number(r.measured_qty) || 0,
+            spec_id: null,
+            status: 'added',
+            measured_width: Number(r.measured_width) || null,
+            measured_height: Number(r.measured_height) || null,
+            measured_qty: Number(r.measured_qty) || 1,
             note: r.note || null,
             photo_url: r.photoUrl || null,
             design_code: r.designCode || null,
           }
-        }
-        return {
-          survey_id: surveyId,
-          spec_id: null,
-          status: 'added',
-          measured_width: Number(r.measured_width) || null,
-          measured_height: Number(r.measured_height) || null,
-          measured_qty: Number(r.measured_qty) || 1,
-          note: r.note || null,
-          photo_url: r.photoUrl || null,
-          design_code: r.designCode || null,
-        }
-      })
+        })
 
       if (payload.length > 0) {
         await supabase.from('signage_submissions').insert(payload)
@@ -628,14 +630,19 @@ function SpecCard({ row, reviewMode, designTypes, onStatus, onChange, onToggleOr
 
 function ExcludedCard({ row, reviewMode, designTypes, onToggleOrderTarget }) {
   const { spec } = row
+  const photoPreview = row.photo ? URL.createObjectURL(row.photo) : row.photoUrl
   return (
-    <Card className="border-border/30 rounded-2xl opacity-60 bg-muted/30">
+    <Card className="border-border/30 rounded-2xl opacity-70 bg-muted/30">
       <CardContent className="p-3 flex items-center gap-3">
-        <div className="shrink-0 w-8 h-8 rounded-lg bg-muted flex items-center justify-center text-muted-foreground">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-            <path d="M5 13l4 4L19 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-          </svg>
-        </div>
+        {photoPreview ? (
+          <img src={photoPreview} alt="현재 시안" className="shrink-0 w-14 h-14 object-cover rounded-lg border border-border/40" />
+        ) : (
+          <div className="shrink-0 w-10 h-10 rounded-lg bg-muted flex items-center justify-center text-muted-foreground">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+              <path d="M5 13l4 4L19 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </div>
+        )}
         <div className="flex-1 min-w-0">
           <p className="text-[13px] font-bold text-muted-foreground font-mono">
             {spec.width.toLocaleString()} × {spec.height.toLocaleString()} mm
