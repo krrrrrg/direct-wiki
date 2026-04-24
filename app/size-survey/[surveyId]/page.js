@@ -260,6 +260,15 @@ export default function SizeSurveyPage({ params }) {
           </div>
         )}
 
+        {submittedAt && !justSubmitted && (
+          <div className="rounded-2xl bg-primary/10 border border-primary/30 px-4 py-3 mb-4">
+            <p className="text-sm font-bold text-primary mb-0.5">⚠️ 이미 제출된 설문입니다</p>
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              아래 기준대로 맞게 작성됐는지 한 번 더 확인 부탁드려요. 수정 후 [다시 제출] 누르시면 갱신됩니다.
+            </p>
+          </div>
+        )}
+
         <div className="mb-5">
           <div className="flex items-center justify-between mb-2">
             <p className="text-sm text-muted-foreground">
@@ -271,6 +280,36 @@ export default function SizeSurveyPage({ params }) {
             <div className="h-full bg-primary transition-all" style={{ width: totalDecidable ? `${(decidedCount / totalDecidable) * 100}%` : '0%' }} />
           </div>
         </div>
+
+        <details className="mb-5 rounded-2xl bg-primary/5 border border-primary/20 overflow-hidden" open>
+          <summary className="cursor-pointer px-4 py-3 text-sm font-bold text-primary flex items-center justify-between">
+            <span>📋 진행 방법 (꼭 읽어주세요)</span>
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" className="transition-transform"><path d="M4 6L8 10L12 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+          </summary>
+          <div className="px-4 pb-4 space-y-3 text-[13px] leading-relaxed">
+            <div className="rounded-xl bg-card border border-border/40 px-3 py-2.5">
+              <p className="font-bold text-foreground mb-0.5">1. 아래 본사 사진 먼저 확인</p>
+              <p className="text-muted-foreground">사진에 <span className="text-destructive font-bold">"유지"</span>라고 표시된 광고판은 이번 변경 대상이 <span className="font-bold">아닙니다</span>. 치수가 본사와 맞으면 그냥 <span className="font-bold text-primary">[동일]</span> 눌러주세요.</p>
+            </div>
+            <div className="rounded-xl bg-card border border-border/40 px-3 py-2.5">
+              <p className="font-bold text-foreground mb-1">2. 나머지 광고판만 카드 하나씩 확인</p>
+              <p className="text-muted-foreground mb-1">광고판 1개 = 카드 1장이에요. 실측 후 아래 기준으로:</p>
+              <ul className="space-y-0.5 text-muted-foreground">
+                <li>✓ 본사 치수와 <span className="font-bold">같으면</span> → <span className="font-bold text-primary">[동일]</span></li>
+                <li>✏ 본사 치수와 <span className="font-bold">다르면</span> → <span className="font-bold text-primary">[수정]</span> + 실측 가로×세로 입력</li>
+                <li>✕ 현장에 <span className="font-bold">실제로 없으면</span> → <span className="font-bold text-destructive">[없음]</span></li>
+              </ul>
+            </div>
+            <div className="rounded-xl bg-card border border-border/40 px-3 py-2.5">
+              <p className="font-bold text-foreground mb-0.5">3. 본사에 없는 광고판이 더 있으면</p>
+              <p className="text-muted-foreground">아래 <span className="font-bold text-primary">[+ 본사에 없는 항목 추가]</span>로 추가 + <span className="font-bold">광고판 사진 촬영 필수</span></p>
+            </div>
+            <div className="rounded-xl bg-card border border-border/40 px-3 py-2.5">
+              <p className="font-bold text-foreground mb-0.5">4. 맨 아래 이름 입력 → [제출하기]</p>
+              <p className="text-muted-foreground">이 치수로 시공업자에게 전달됩니다. 재제작되지 않게 정확히 부탁드려요 🙏</p>
+            </div>
+          </div>
+        </details>
 
         {images.length > 0 && (
           <div className="mb-6">

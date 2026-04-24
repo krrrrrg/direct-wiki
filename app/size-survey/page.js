@@ -69,6 +69,17 @@ export default function SizeSurveyIndexPage() {
       <Header title="사이즈 설문" />
 
       <div className="max-w-[480px] mx-auto px-5 pt-6">
+        <div className="rounded-2xl bg-primary/10 border border-primary/20 p-4 mb-5">
+          <p className="text-[11px] font-bold text-primary mb-1.5">📢 광고판 시공 전 실측 설문</p>
+          <p className="text-sm font-bold leading-relaxed text-foreground mb-2">
+            사이드광고 시안 변경 작업을 위한 <span className="text-primary">실측 확인</span>입니다.
+          </p>
+          <p className="text-xs leading-relaxed text-muted-foreground">
+            매장 검색 → 매장 선택 → 광고판 하나씩 확인.<br />
+            시공업자에게 이 치수로 넘길 예정이라 정확한 입력 부탁드립니다.
+          </p>
+        </div>
+
         <div className="mb-6">
           <h2 className="text-xl font-extrabold tracking-tight mb-1.5">우리 매장 찾기</h2>
           <p className="text-sm text-muted-foreground leading-relaxed">
