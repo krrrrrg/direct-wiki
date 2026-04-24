@@ -544,8 +544,47 @@ function AddedCard({ row, onChange, onRemove }) {
     e.target.value = ''
   }
 
+  async function handlePasteButton() {
+    if (!navigator.clipboard?.read) {
+      alert('이 브라우저는 붙여넣기를 지원하지 않아요. 사진 찍기로 등록해주세요.')
+      return
+    }
+    try {
+      const items = await navigator.clipboard.read()
+      for (const item of items) {
+        for (const type of item.types) {
+          if (type.startsWith('image/')) {
+            const blob = await item.getType(type)
+            const ext = type.split('/')[1] || 'png'
+            const file = new File([blob], `clipboard-${Date.now()}.${ext}`, { type })
+            onChange({ photo: file, photoUrl: null })
+            return
+          }
+        }
+      }
+      alert('클립보드에 이미지가 없어요.')
+    } catch (err) {
+      alert('붙여넣기 권한을 허용해주세요.')
+    }
+  }
+
+  function handlePasteEvent(e) {
+    const items = e.clipboardData?.items
+    if (!items) return
+    for (const item of items) {
+      if (item.type.startsWith('image/')) {
+        const file = item.getAsFile()
+        if (file) {
+          onChange({ photo: file, photoUrl: null })
+          e.preventDefault()
+        }
+        return
+      }
+    }
+  }
+
   return (
-    <Card className="border-primary/40 border-2 rounded-2xl bg-primary/5">
+    <Card className="border-primary/40 border-2 rounded-2xl bg-primary/5" onPaste={handlePasteEvent}>
       <CardContent className="p-4">
         <div className="flex items-center justify-between mb-3">
           <span className="text-[11px] font-bold text-primary bg-primary/15 px-2 py-0.5 rounded-full">
@@ -609,20 +648,33 @@ function AddedCard({ row, onChange, onRemove }) {
                 </button>
               </div>
             ) : (
-              <label className="block w-full rounded-xl border-2 border-dashed border-primary/40 py-6 text-center cursor-pointer hover:bg-primary/5 transition-colors">
-                <svg className="mx-auto mb-1.5 text-primary" width="28" height="28" viewBox="0 0 24 24" fill="none">
-                  <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/>
-                  <circle cx="12" cy="13" r="4" stroke="currentColor" strokeWidth="1.8"/>
-                </svg>
-                <p className="text-xs font-bold text-primary">광고판 사진 찍기</p>
-                <input
-                  type="file"
-                  accept="image/*"
-                  capture="environment"
-                  onChange={handlePhotoPick}
-                  className="hidden"
-                />
-              </label>
+              <div className="grid grid-cols-2 gap-2">
+                <label className="block rounded-xl border-2 border-dashed border-primary/40 py-4 text-center cursor-pointer hover:bg-primary/5 transition-colors">
+                  <svg className="mx-auto mb-1 text-primary" width="24" height="24" viewBox="0 0 24 24" fill="none">
+                    <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/>
+                    <circle cx="12" cy="13" r="4" stroke="currentColor" strokeWidth="1.8"/>
+                  </svg>
+                  <p className="text-[11px] font-bold text-primary">사진 찍기</p>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    onChange={handlePhotoPick}
+                    className="hidden"
+                  />
+                </label>
+                <button
+                  type="button"
+                  onClick={handlePasteButton}
+                  className="rounded-xl border-2 border-dashed border-primary/40 py-4 text-center hover:bg-primary/5 transition-colors"
+                >
+                  <svg className="mx-auto mb-1 text-primary" width="24" height="24" viewBox="0 0 24 24" fill="none">
+                    <rect x="8" y="2" width="8" height="4" rx="1" stroke="currentColor" strokeWidth="1.8"/>
+                    <path d="M16 4h3a2 2 0 0 1 2 2v15a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h3" stroke="currentColor" strokeWidth="1.8"/>
+                  </svg>
+                  <p className="text-[11px] font-bold text-primary">클립보드 붙여넣기</p>
+                </button>
+              </div>
             )}
           </div>
         </div>
