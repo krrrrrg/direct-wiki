@@ -663,13 +663,18 @@ function DesignPicker({ value, onChange, designs }) {
           </option>
         ))}
       </select>
-      {selected && (
+      {selected && selected.image_url && (
         <div className="mt-2 flex items-center justify-center bg-muted/40 rounded-xl p-2">
           <img
             src={selected.image_url}
             alt={selected.label}
             className={`object-contain ${selected.orientation === 'H' ? 'h-40' : 'h-28'}`}
           />
+        </div>
+      )}
+      {selected && !selected.image_url && (
+        <div className="mt-2 rounded-xl bg-muted/40 px-3 py-2 text-[11px] text-muted-foreground text-center">
+          참고 이미지 없음 · 현재 교체 대상 시안
         </div>
       )}
     </div>
