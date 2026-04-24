@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, use } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { supabase } from '../../../lib/supabase'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -31,6 +32,8 @@ const STICKER_INSTRUCTION = {
 
 export default function SizeSurveyPage({ params }) {
   const { surveyId } = use(params)
+  const searchParams = useSearchParams()
+  const reviewMode = searchParams?.get('review') === '1'
   const [loading, setLoading] = useState(true)
   const [notFound, setNotFound] = useState(false)
   const [store, setStore] = useState(null)
@@ -89,6 +92,8 @@ export default function SizeSurveyPage({ params }) {
         measured_height: existing?.measured_height ?? spec.height,
         measured_qty: existing?.measured_qty ?? spec.qty,
         note: existing?.note || '',
+        photo: null,
+        photoUrl: existing?.photo_url || null,
       }
     })
 
@@ -155,8 +160,29 @@ export default function SizeSurveyPage({ params }) {
     setRows((prev) => prev.filter((_, i) => i !== index))
   }
 
-  const totalDecidable = rows.filter((r) => r.kind === 'spec').length + rows.filter((r) => r.kind === 'added').length
-  const decidedCount = rows.filter((r) => {
+  async function toggleOrderTarget(specId, nextValue) {
+    setRows((prev) => prev.map((r) =>
+      r.kind === 'spec' && r.spec?.id === specId
+        ? { ...r, spec: { ...r.spec, is_order_target: nextValue }, status: nextValue ? r.status : null }
+        : r
+    ))
+    const { error } = await supabase.from('signage_specs').update({ is_order_target: nextValue }).eq('id', specId)
+    if (error) {
+      alert('저장 실패: ' + error.message)
+      setRows((prev) => prev.map((r) =>
+        r.kind === 'spec' && r.spec?.id === specId
+          ? { ...r, spec: { ...r.spec, is_order_target: !nextValue } }
+          : r
+      ))
+    }
+  }
+
+  const isTargetSpec = (r) => r.kind === 'spec' && r.spec?.is_order_target !== false
+  const orderTargetRows = rows.filter((r) => isTargetSpec(r) || r.kind === 'added')
+  const excludedRows = rows.filter((r) => r.kind === 'spec' && r.spec?.is_order_target === false)
+
+  const totalDecidable = orderTargetRows.length
+  const decidedCount = orderTargetRows.filter((r) => {
     if (r.kind === 'added') return r.measured_width && r.measured_height && r.measured_qty
     if (r.kind === 'spec') return !!r.status
     return false
@@ -165,7 +191,7 @@ export default function SizeSurveyPage({ params }) {
   const canSubmit =
     totalDecidable > 0 ?
       decidedCount === totalDecidable &&
-      rows.every((r) => {
+      orderTargetRows.every((r) => {
         if (r.kind !== 'added') return true
         const hasSize = r.measured_width && r.measured_height && r.measured_qty
         const hasPhoto = !!(r.photo || r.photoUrl)
@@ -187,7 +213,7 @@ export default function SizeSurveyPage({ params }) {
     try {
       const uploaded = await Promise.all(
         rows.map(async (r) => {
-          if (r.kind === 'added' && r.photo) {
+          if (r.photo) {
             const url = await uploadAddedPhoto(r.photo)
             return { ...r, photoUrl: url, photo: null }
           }
@@ -207,6 +233,7 @@ export default function SizeSurveyPage({ params }) {
             measured_height: r.status === 'removed' ? null : Number(r.measured_height) || null,
             measured_qty: r.status === 'removed' ? 0 : Number(r.measured_qty) || 0,
             note: r.note || null,
+            photo_url: r.photoUrl || null,
           }
         }
         return {
@@ -290,7 +317,8 @@ export default function SizeSurveyPage({ params }) {
         <div className="mb-5">
           <div className="flex items-center justify-between mb-2">
             <p className="text-sm text-muted-foreground">
-              {store?.region ? `${store.region} · ` : ''}본사 등록 {rows.filter((r) => r.kind === 'spec').length}건
+              {store?.region ? `${store.region} · ` : ''}발주 대상 {orderTargetRows.filter(r => r.kind === 'spec').length}건
+              {excludedRows.length > 0 && ` · 제외 ${excludedRows.length}`}
             </p>
             <p className="text-xs font-bold text-primary">{decidedCount} / {totalDecidable}</p>
           </div>
@@ -350,13 +378,17 @@ export default function SizeSurveyPage({ params }) {
         )}
 
         <div className="space-y-3">
-          {rows.map((row, idx) =>
-            row.kind === 'spec' ? (
+          {rows.map((row, idx) => {
+            if (row.kind === 'spec' && row.spec?.is_order_target === false) return null
+            const isSpec = row.kind === 'spec'
+            return isSpec ? (
               <SpecCard
                 key={row.spec.id}
                 row={row}
+                reviewMode={reviewMode}
                 onStatus={(st) => setRowStatus(idx, st)}
                 onChange={(patch) => updateRow(idx, patch)}
+                onToggleOrderTarget={() => toggleOrderTarget(row.spec.id, !row.spec.is_order_target)}
               />
             ) : (
               <AddedCard
@@ -366,7 +398,7 @@ export default function SizeSurveyPage({ params }) {
                 onRemove={() => removeAddedRow(idx)}
               />
             )
-          )}
+          })}
         </div>
 
         <button
@@ -376,6 +408,24 @@ export default function SizeSurveyPage({ params }) {
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
           본사에 없는 항목 추가
         </button>
+
+        {excludedRows.length > 0 && (
+          <div className="mt-8">
+            <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider mb-2 px-1">
+              발주 제외 ({excludedRows.length}) — 유지되는 광고판
+            </p>
+            <div className="space-y-2">
+              {excludedRows.map((row) => (
+                <ExcludedCard
+                  key={row.spec.id}
+                  row={row}
+                  reviewMode={reviewMode}
+                  onToggleOrderTarget={() => toggleOrderTarget(row.spec.id, !row.spec.is_order_target)}
+                />
+              ))}
+            </div>
+          </div>
+        )}
 
         {stickerInstruction && STICKER_INSTRUCTION[stickerInstruction.tag] && (
           <div className="mt-6 rounded-2xl border-2 border-destructive/30 bg-destructive/5 p-4">
@@ -432,7 +482,7 @@ export default function SizeSurveyPage({ params }) {
   )
 }
 
-function SpecCard({ row, onStatus, onChange }) {
+function SpecCard({ row, reviewMode, onStatus, onChange, onToggleOrderTarget }) {
   const { spec, status } = row
   const isActive = !!status
   const activeColor =
@@ -461,6 +511,16 @@ function SpecCard({ row, onStatus, onChange }) {
             </span>
           )}
         </div>
+
+        {reviewMode && (
+          <button
+            onClick={onToggleOrderTarget}
+            className="w-full mb-3 rounded-xl border-2 border-dashed border-muted-foreground/30 py-2 text-xs font-bold text-muted-foreground hover:bg-muted/50"
+            title="경영지원 전용: 발주 대상에서 제외"
+          >
+            👔 발주 제외로 이동
+          </button>
+        )}
 
         <div className="grid grid-cols-3 gap-2 mb-2">
           <StatusButton active={status === 'match'} onClick={() => onStatus('match')} label="동일" tone="primary" />
@@ -517,6 +577,41 @@ function SpecCard({ row, onStatus, onChange }) {
             />
           </div>
         )}
+
+        {isActive && (
+          <div className="mt-3 pt-3 border-t border-border/40">
+            <PhotoPicker photo={row.photo} photoUrl={row.photoUrl} onChange={onChange} compact />
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  )
+}
+
+function ExcludedCard({ row, reviewMode, onToggleOrderTarget }) {
+  const { spec } = row
+  return (
+    <Card className="border-border/30 rounded-2xl opacity-60 bg-muted/30">
+      <CardContent className="p-3 flex items-center gap-3">
+        <div className="shrink-0 w-8 h-8 rounded-lg bg-muted flex items-center justify-center text-muted-foreground">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+            <path d="M5 13l4 4L19 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-[13px] font-bold text-muted-foreground font-mono">
+            {spec.width.toLocaleString()} × {spec.height.toLocaleString()} mm
+          </p>
+          <p className="text-[10px] text-muted-foreground">유지 · 이번 발주 제외</p>
+        </div>
+        {reviewMode && (
+          <button
+            onClick={onToggleOrderTarget}
+            className="shrink-0 text-[11px] font-bold text-primary border border-primary/40 px-2.5 py-1 rounded-full hover:bg-primary/10"
+          >
+            발주 포함으로 복원
+          </button>
+        )}
       </CardContent>
     </Card>
   )
@@ -535,8 +630,8 @@ function StatusButton({ active, onClick, label, tone }) {
   )
 }
 
-function AddedCard({ row, onChange, onRemove }) {
-  const photoPreview = row.photo ? URL.createObjectURL(row.photo) : row.photoUrl
+function PhotoPicker({ photo, photoUrl, onChange, label = '사진 (선택)', compact = false }) {
+  const preview = photo ? URL.createObjectURL(photo) : photoUrl
 
   function handlePhotoPick(e) {
     const file = e.target.files?.[0]
@@ -563,7 +658,7 @@ function AddedCard({ row, onChange, onRemove }) {
         }
       }
       alert('클립보드에 이미지가 없어요.')
-    } catch (err) {
+    } catch {
       alert('붙여넣기 권한을 허용해주세요.')
     }
   }
@@ -584,7 +679,49 @@ function AddedCard({ row, onChange, onRemove }) {
   }
 
   return (
-    <Card className="border-primary/40 border-2 rounded-2xl bg-primary/5" onPaste={handlePasteEvent}>
+    <div onPaste={handlePasteEvent}>
+      <p className="text-[11px] font-bold text-muted-foreground mb-1.5">{label}</p>
+      {preview ? (
+        <div className="relative">
+          <img src={preview} alt="첨부 사진" className={`w-full object-cover rounded-xl border border-border/40 ${compact ? 'h-32' : 'h-48'}`} />
+          <button
+            type="button"
+            onClick={() => onChange({ photo: null, photoUrl: null })}
+            className="absolute top-2 right-2 bg-background/90 backdrop-blur text-[11px] font-bold px-2 py-0.5 rounded-full border border-border"
+          >
+            다시 찍기
+          </button>
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 gap-2">
+          <label className="block rounded-xl border-2 border-dashed border-primary/40 py-3 text-center cursor-pointer hover:bg-primary/5 transition-colors">
+            <svg className="mx-auto mb-1 text-primary" width="20" height="20" viewBox="0 0 24 24" fill="none">
+              <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/>
+              <circle cx="12" cy="13" r="4" stroke="currentColor" strokeWidth="1.8"/>
+            </svg>
+            <p className="text-[11px] font-bold text-primary">사진 찍기</p>
+            <input type="file" accept="image/*" capture="environment" onChange={handlePhotoPick} className="hidden" />
+          </label>
+          <button
+            type="button"
+            onClick={handlePasteButton}
+            className="rounded-xl border-2 border-dashed border-primary/40 py-3 text-center hover:bg-primary/5 transition-colors"
+          >
+            <svg className="mx-auto mb-1 text-primary" width="20" height="20" viewBox="0 0 24 24" fill="none">
+              <rect x="8" y="2" width="8" height="4" rx="1" stroke="currentColor" strokeWidth="1.8"/>
+              <path d="M16 4h3a2 2 0 0 1 2 2v15a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h3" stroke="currentColor" strokeWidth="1.8"/>
+            </svg>
+            <p className="text-[11px] font-bold text-primary">붙여넣기</p>
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function AddedCard({ row, onChange, onRemove }) {
+  return (
+    <Card className="border-primary/40 border-2 rounded-2xl bg-primary/5">
       <CardContent className="p-4">
         <div className="flex items-center justify-between mb-3">
           <span className="text-[11px] font-bold text-primary bg-primary/15 px-2 py-0.5 rounded-full">
@@ -636,46 +773,7 @@ function AddedCard({ row, onChange, onRemove }) {
           </div>
 
           <div className="pt-2">
-            <p className="text-[11px] font-bold text-primary mb-1.5">사진 (필수)</p>
-            {photoPreview ? (
-              <div className="relative">
-                <img src={photoPreview} alt="첨부 사진" className="w-full h-48 object-cover rounded-xl border border-border/40" />
-                <button
-                  onClick={() => onChange({ photo: null, photoUrl: null })}
-                  className="absolute top-2 right-2 bg-background/90 backdrop-blur text-xs font-bold px-2.5 py-1 rounded-full border border-border"
-                >
-                  다시 찍기
-                </button>
-              </div>
-            ) : (
-              <div className="grid grid-cols-2 gap-2">
-                <label className="block rounded-xl border-2 border-dashed border-primary/40 py-4 text-center cursor-pointer hover:bg-primary/5 transition-colors">
-                  <svg className="mx-auto mb-1 text-primary" width="24" height="24" viewBox="0 0 24 24" fill="none">
-                    <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/>
-                    <circle cx="12" cy="13" r="4" stroke="currentColor" strokeWidth="1.8"/>
-                  </svg>
-                  <p className="text-[11px] font-bold text-primary">사진 찍기</p>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    capture="environment"
-                    onChange={handlePhotoPick}
-                    className="hidden"
-                  />
-                </label>
-                <button
-                  type="button"
-                  onClick={handlePasteButton}
-                  className="rounded-xl border-2 border-dashed border-primary/40 py-4 text-center hover:bg-primary/5 transition-colors"
-                >
-                  <svg className="mx-auto mb-1 text-primary" width="24" height="24" viewBox="0 0 24 24" fill="none">
-                    <rect x="8" y="2" width="8" height="4" rx="1" stroke="currentColor" strokeWidth="1.8"/>
-                    <path d="M16 4h3a2 2 0 0 1 2 2v15a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h3" stroke="currentColor" strokeWidth="1.8"/>
-                  </svg>
-                  <p className="text-[11px] font-bold text-primary">클립보드 붙여넣기</p>
-                </button>
-              </div>
-            )}
+            <PhotoPicker photo={row.photo} photoUrl={row.photoUrl} onChange={onChange} label="사진 (필수)" />
           </div>
         </div>
       </CardContent>
