@@ -45,6 +45,7 @@ export default function SizeSurveyPage({ params }) {
   const [justSubmitted, setJustSubmitted] = useState(false)
   const [activeImage, setActiveImage] = useState(0)
   const [stickerInstruction, setStickerInstruction] = useState(null)
+  const [designTypes, setDesignTypes] = useState([])
 
   const fetchAll = useCallback(async () => {
     setLoading(true)
@@ -63,17 +64,19 @@ export default function SizeSurveyPage({ params }) {
     setSubmittedAt(survey.submitted_at)
     setManagerName(survey.submitted_by_name || '')
 
-    const [{ data: storeData }, { data: specsData }, { data: imgs }, { data: subs }, { data: sticker }] = await Promise.all([
+    const [{ data: storeData }, { data: specsData }, { data: imgs }, { data: subs }, { data: sticker }, { data: designs }] = await Promise.all([
       supabase.from('stores').select('id, name, region').eq('id', survey.store_id).single(),
       supabase.from('signage_specs').select('*').eq('store_id', survey.store_id).order('sort_order'),
       supabase.from('signage_reference_images').select('image_url, sort_order').eq('store_id', survey.store_id).order('sort_order'),
       supabase.from('signage_submissions').select('*').eq('survey_id', survey.id),
       supabase.from('signage_sticker_instructions').select('tag, excel_phrase').eq('store_id', survey.store_id).maybeSingle(),
+      supabase.from('signage_design_types').select('*').order('sort_order'),
     ])
 
     setStore(storeData)
     setImages(imgs || [])
     setStickerInstruction(sticker || null)
+    setDesignTypes(designs || [])
 
     const subBySpec = new Map()
     const addedExisting = []
@@ -94,6 +97,7 @@ export default function SizeSurveyPage({ params }) {
         note: existing?.note || '',
         photo: null,
         photoUrl: existing?.photo_url || null,
+        designCode: existing?.design_code || spec.design_code || null,
       }
     })
 
@@ -108,6 +112,7 @@ export default function SizeSurveyPage({ params }) {
       status: 'added',
       photo: null,
       photoUrl: s.photo_url || null,
+      designCode: s.design_code || null,
     }))
 
     setRows([...specRows, ...addedRows])
@@ -152,6 +157,7 @@ export default function SizeSurveyPage({ params }) {
         status: 'added',
         photo: null,
         photoUrl: null,
+        designCode: null,
       },
     ])
   }
@@ -234,6 +240,7 @@ export default function SizeSurveyPage({ params }) {
             measured_qty: r.status === 'removed' ? 0 : Number(r.measured_qty) || 0,
             note: r.note || null,
             photo_url: r.photoUrl || null,
+            design_code: r.designCode || null,
           }
         }
         return {
@@ -245,6 +252,7 @@ export default function SizeSurveyPage({ params }) {
           measured_qty: Number(r.measured_qty) || 1,
           note: r.note || null,
           photo_url: r.photoUrl || null,
+          design_code: r.designCode || null,
         }
       })
 
@@ -386,6 +394,7 @@ export default function SizeSurveyPage({ params }) {
                 key={row.spec.id}
                 row={row}
                 reviewMode={reviewMode}
+                designTypes={designTypes}
                 onStatus={(st) => setRowStatus(idx, st)}
                 onChange={(patch) => updateRow(idx, patch)}
                 onToggleOrderTarget={() => toggleOrderTarget(row.spec.id, !row.spec.is_order_target)}
@@ -394,6 +403,7 @@ export default function SizeSurveyPage({ params }) {
               <AddedCard
                 key={row.tempId}
                 row={row}
+                designTypes={designTypes}
                 onChange={(patch) => updateRow(idx, patch)}
                 onRemove={() => removeAddedRow(idx)}
               />
@@ -482,7 +492,7 @@ export default function SizeSurveyPage({ params }) {
   )
 }
 
-function SpecCard({ row, reviewMode, onStatus, onChange, onToggleOrderTarget }) {
+function SpecCard({ row, reviewMode, designTypes, onStatus, onChange, onToggleOrderTarget }) {
   const { spec, status } = row
   const isActive = !!status
   const activeColor =
@@ -579,7 +589,12 @@ function SpecCard({ row, reviewMode, onStatus, onChange, onToggleOrderTarget }) 
         )}
 
         {isActive && (
-          <div className="mt-3 pt-3 border-t border-border/40">
+          <div className="mt-3 pt-3 border-t border-border/40 space-y-3">
+            <DesignPicker
+              value={row.designCode}
+              onChange={(code) => onChange({ designCode: code })}
+              designs={designTypes}
+            />
             <PhotoPicker photo={row.photo} photoUrl={row.photoUrl} onChange={onChange} compact />
           </div>
         )}
@@ -627,6 +642,37 @@ function StatusButton({ active, onClick, label, tone }) {
     >
       {label}
     </button>
+  )
+}
+
+function DesignPicker({ value, onChange, designs }) {
+  if (!designs || designs.length === 0) return null
+  const selected = designs.find((d) => d.code === value)
+  return (
+    <div>
+      <p className="text-[11px] font-bold text-muted-foreground mb-1.5">시안 종류 (선택)</p>
+      <select
+        value={value || ''}
+        onChange={(e) => onChange(e.target.value || null)}
+        className="w-full h-10 px-3 rounded-xl border border-border bg-background text-sm"
+      >
+        <option value="">시안 선택 안 함</option>
+        {designs.map((d) => (
+          <option key={d.code} value={d.code}>
+            {d.code} · {d.label}
+          </option>
+        ))}
+      </select>
+      {selected && (
+        <div className="mt-2 flex items-center justify-center bg-muted/40 rounded-xl p-2">
+          <img
+            src={selected.image_url}
+            alt={selected.label}
+            className={`object-contain ${selected.orientation === 'H' ? 'h-40' : 'h-28'}`}
+          />
+        </div>
+      )}
+    </div>
   )
 }
 
@@ -719,7 +765,7 @@ function PhotoPicker({ photo, photoUrl, onChange, label = '사진 (선택)', com
   )
 }
 
-function AddedCard({ row, onChange, onRemove }) {
+function AddedCard({ row, designTypes, onChange, onRemove }) {
   return (
     <Card className="border-primary/40 border-2 rounded-2xl bg-primary/5">
       <CardContent className="p-4">
@@ -769,6 +815,14 @@ function AddedCard({ row, onChange, onRemove }) {
               onChange={(e) => onChange({ note: e.target.value })}
               placeholder="위치 메모 (선택)"
               className="bg-background flex-1"
+            />
+          </div>
+
+          <div className="pt-2">
+            <DesignPicker
+              value={row.designCode}
+              onChange={(code) => onChange({ designCode: code })}
+              designs={designTypes}
             />
           </div>
 
