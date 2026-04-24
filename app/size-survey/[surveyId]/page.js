@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback, use } from 'react'
+import { useState, useEffect, useCallback, use, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { supabase } from '../../../lib/supabase'
 import { Card, CardContent } from '@/components/ui/card'
@@ -30,7 +30,15 @@ const STICKER_INSTRUCTION = {
   },
 }
 
-export default function SizeSurveyPage({ params }) {
+export default function SizeSurveyPage(props) {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-background" />}>
+      <SizeSurveyInner {...props} />
+    </Suspense>
+  )
+}
+
+function SizeSurveyInner({ params }) {
   const { surveyId } = use(params)
   const searchParams = useSearchParams()
   const reviewMode = searchParams?.get('review') === '1'

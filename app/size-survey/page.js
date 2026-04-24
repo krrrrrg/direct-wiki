@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, Suspense } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { supabase } from '../../lib/supabase'
@@ -12,6 +12,14 @@ const EXCLUDED_REGIONS = new Set(['제주'])
 const EXCLUDED_REASON = '다른 시공업체'
 
 export default function SizeSurveyIndexPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-background" />}>
+      <SizeSurveyIndexInner />
+    </Suspense>
+  )
+}
+
+function SizeSurveyIndexInner() {
   const searchParams = useSearchParams()
   const reviewMode = searchParams?.get('review') === '1'
   const [stores, setStores] = useState([])
