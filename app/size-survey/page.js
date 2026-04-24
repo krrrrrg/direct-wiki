@@ -7,8 +7,12 @@ import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
 import { Header } from '../../components/shared'
 
+const EXCLUDED_REGIONS = new Set(['제주'])
+const EXCLUDED_REASON = '다른 시공업체'
+
 export default function SizeSurveyIndexPage() {
   const [stores, setStores] = useState([])
+  const [excluded, setExcluded] = useState([])
   const [search, setSearch] = useState('')
   const [loading, setLoading] = useState(true)
   const [stats, setStats] = useState({ done: 0, total: 0 })
@@ -31,38 +35,42 @@ export default function SizeSurveyIndexPage() {
       c[s.status] = (c[s.status] || 0) + 1
     }
 
-    const rows = (storeList || [])
-      .map(s => {
-        const sv = surveyByStore.get(s.id)
-        if (!sv) return null
-        const c = countsBySurvey.get(sv.id) || { match: 0, modified: 0, removed: 0, added: 0 }
-        const changeCount = (c.modified || 0) + (c.removed || 0) + (c.added || 0)
-        return {
-          ...s,
-          surveyId: sv.id,
-          submittedAt: sv.submitted_at,
-          counts: c,
-          changeCount,
-        }
+    const active = []
+    const skipped = []
+    for (const s of storeList || []) {
+      if (EXCLUDED_REGIONS.has(s.region)) {
+        skipped.push({ ...s, excluded: true, reason: EXCLUDED_REASON })
+        continue
+      }
+      const sv = surveyByStore.get(s.id)
+      if (!sv) continue
+      const c = countsBySurvey.get(sv.id) || { match: 0, modified: 0, removed: 0, added: 0 }
+      const changeCount = (c.modified || 0) + (c.removed || 0) + (c.added || 0)
+      active.push({
+        ...s,
+        surveyId: sv.id,
+        submittedAt: sv.submitted_at,
+        counts: c,
+        changeCount,
       })
-      .filter(Boolean)
+    }
 
-    const done = rows.filter(r => r.submittedAt).length
-    setStats({ done, total: rows.length })
-    setStores(rows)
+    const done = active.filter(r => r.submittedAt).length
+    setStats({ done, total: active.length })
+    setStores(active)
+    setExcluded(skipped)
     setLoading(false)
   }, [])
 
   useEffect(() => { load() }, [load])
 
   const q = search.trim().toLowerCase()
-  const filtered = q
-    ? stores.filter(s =>
-        (s.name || '').toLowerCase().includes(q) ||
-        (s.code || '').toLowerCase().includes(q) ||
-        (s.region || '').toLowerCase().includes(q)
-      )
-    : stores
+  const matches = (s) =>
+    (s.name || '').toLowerCase().includes(q) ||
+    (s.code || '').toLowerCase().includes(q) ||
+    (s.region || '').toLowerCase().includes(q)
+  const filtered = q ? stores.filter(matches) : stores
+  const filteredExcluded = q ? excluded.filter(matches) : excluded
 
   return (
     <div className="min-h-screen bg-background pb-20">
@@ -115,7 +123,7 @@ export default function SizeSurveyIndexPage() {
 
         {loading ? (
           <div className="text-center py-10 text-muted-foreground text-sm">불러오는 중…</div>
-        ) : filtered.length === 0 ? (
+        ) : filtered.length === 0 && filteredExcluded.length === 0 ? (
           <div className="text-center py-10 text-sm text-muted-foreground">
             {q ? '일치하는 매장이 없어요' : '등록된 매장이 없습니다'}
           </div>
@@ -163,6 +171,37 @@ export default function SizeSurveyIndexPage() {
                 </Card>
               </Link>
             ))}
+
+            {filteredExcluded.length > 0 && (
+              <div className="pt-6">
+                <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider mb-2 px-1">
+                  대상 외 매장
+                </p>
+                {filteredExcluded.map(s => (
+                  <div key={s.id} className="mb-2">
+                    <Card className="border-border/30 rounded-2xl opacity-60">
+                      <CardContent className="p-4 flex items-center gap-3">
+                        <div className="shrink-0 w-10 h-10 rounded-xl flex items-center justify-center bg-muted">
+                          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" className="text-muted-foreground">
+                            <path d="M3 9L12 3L21 9V21H3V9Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/>
+                            <path d="M9 21V15H15V21" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/>
+                          </svg>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-bold text-sm tracking-tight truncate text-muted-foreground">{s.name}</p>
+                          <p className="text-[11px] text-muted-foreground">
+                            {s.region || ''}{s.code ? ` · ${s.code}` : ''}
+                          </p>
+                        </div>
+                        <span className="shrink-0 text-[11px] font-bold text-muted-foreground bg-muted px-2.5 py-1 rounded-full">
+                          {s.reason}
+                        </span>
+                      </CardContent>
+                    </Card>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
       </div>
