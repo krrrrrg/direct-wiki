@@ -16,6 +16,11 @@ function formatAmount(value) {
   return `${Number(value || 0).toLocaleString('ko-KR')}원`
 }
 
+function localDateInputValue(date = new Date()) {
+  const localDate = new Date(date.getTime() - date.getTimezoneOffset() * 60_000)
+  return localDate.toISOString().split('T')[0]
+}
+
 export default function CashCollectionPage() {
   const [stores, setStores] = useState([])
   const [staff, setStaff] = useState([])
@@ -24,7 +29,7 @@ export default function CashCollectionPage() {
   const [selectedStore, setSelectedStore] = useState(null)
   const [selectedStaff, setSelectedStaff] = useState(null)
   const [workerName, setWorkerName] = useState('')
-  const [collectionDate, setCollectionDate] = useState(() => new Date().toISOString().split('T')[0])
+  const [collectionDate, setCollectionDate] = useState(() => localDateInputValue())
   const [cashAmount, setCashAmount] = useState('')
   const [cashReceiptAmount, setCashReceiptAmount] = useState('')
   const [cardAmount, setCardAmount] = useState('')
@@ -134,7 +139,7 @@ export default function CashCollectionPage() {
     setWorkerName('')
     setStoreSearch('')
     setStaffSearch('')
-    setCollectionDate(new Date().toISOString().split('T')[0])
+    setCollectionDate(localDateInputValue())
     setCashAmount('')
     setCashReceiptAmount('')
     setCardAmount('')
