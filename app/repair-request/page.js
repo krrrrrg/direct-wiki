@@ -24,8 +24,10 @@ export default function RepairRequestPage() {
   const [loading, setLoading] = useState(true)
 
   const fetchStores = useCallback(async () => {
-    const { data } = await supabase.from('stores').select('*').order('region, name')
-    setStores(data || [])
+    const res = await fetch('/api/repair-requests/stores', { cache: 'no-store' })
+    const payload = await res.json().catch(() => null)
+    if (!res.ok || payload?.success === false) throw new Error(payload?.error?.message || '매장 목록 조회 실패')
+    setStores(payload?.data || [])
   }, [])
 
   const fetchStaff = useCallback(async () => {
@@ -34,29 +36,38 @@ export default function RepairRequestPage() {
   }, [])
 
   const fetchRecent = useCallback(async () => {
-    const { data } = await supabase
-      .from('repair_requests')
-      .select('*, stores(name, code, region)')
-      .order('created_at', { ascending: false })
-      .limit(10)
-    setRecentRecords(data || [])
+    const res = await fetch('/api/repair-requests?limit=10&status=all', { cache: 'no-store' })
+    const payload = await res.json().catch(() => null)
+    if (!res.ok || payload?.success === false) throw new Error(payload?.error?.message || '최근 수리접수 조회 실패')
+    setRecentRecords(payload?.data || [])
   }, [])
 
   useEffect(() => {
     async function init() {
       setLoading(true)
-      await Promise.all([fetchStores(), fetchStaff(), fetchRecent()])
-      setLoading(false)
+      try {
+        await Promise.all([fetchStores(), fetchStaff(), fetchRecent()])
+      } catch (error) {
+        alert(error?.message || '수리접수 정보를 불러오지 못했습니다.')
+      } finally {
+        setLoading(false)
+      }
     }
     init()
   }, [fetchStores, fetchStaff, fetchRecent])
 
   const filteredStores = storeSearch.trim()
-    ? stores.filter(s => s.name.includes(storeSearch) || s.code.includes(storeSearch))
+    ? stores.filter(s =>
+        String(s.name || '').includes(storeSearch) ||
+        String(s.code || '').includes(storeSearch)
+      )
     : []
 
   const filteredStaff = staffSearch.trim()
-    ? staff.filter(s => s.name.includes(staffSearch) || s.employee_id.includes(staffSearch))
+    ? staff.filter(s =>
+        String(s.name || '').includes(staffSearch) ||
+        String(s.employee_id || '').includes(staffSearch)
+      )
     : []
 
   function handlePhotoChange(e) {
@@ -136,17 +147,23 @@ export default function RepairRequestPage() {
       }
     }
 
-    const { error: insertError } = await supabase.from('repair_requests').insert({
-      store_id: selectedStore.id,
-      reporter_name: selectedStaff.name,
-      symptom: symptom.trim(),
-      photo_urls: uploadedUrls,
-      video_url: videoUrl,
+    const submitRes = await fetch('/api/repair-requests', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        storeCode: selectedStore.code,
+        reporterName: selectedStaff.name,
+        symptom: symptom.trim(),
+        photoUrls: uploadedUrls,
+        videoUrl,
+        status: 'pending',
+      }),
     })
+    const submitPayload = await submitRes.json().catch(() => null)
 
-    if (insertError) {
+    if (!submitRes.ok || submitPayload?.success === false) {
       setSaving(false)
-      alert('접수에 실패했습니다. 다시 시도해주세요.')
+      alert(submitPayload?.error?.message || '접수에 실패했습니다. 다시 시도해주세요.')
       return
     }
 
@@ -166,11 +183,12 @@ export default function RepairRequestPage() {
     setTimeout(() => setSaved(false), 3000)
   }
 
-  const statusLabel = { pending: '접수', in_progress: '처리중', completed: '완료' }
+  const statusLabel = { pending: '접수', in_progress: '처리중', completed: '완료', canceled: '취소' }
   const statusColor = {
     pending: 'bg-amber-500/10 text-amber-700',
     in_progress: 'bg-primary/10 text-primary',
     completed: 'bg-emerald-500/10 text-emerald-700',
+    canceled: 'bg-muted text-muted-foreground',
   }
 
   if (loading) {
