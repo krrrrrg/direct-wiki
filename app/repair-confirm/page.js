@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import html2canvas from 'html2canvas-pro'
-import { supabase } from '../../lib/supabase'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -12,13 +11,15 @@ const STATUS_OPTIONS = [
   { value: 'pending', label: '접수' },
   { value: 'in_progress', label: '처리중' },
   { value: 'completed', label: '완료' },
+  { value: 'canceled', label: '취소' },
 ]
 
-const STATUS_LABEL = { pending: '접수', in_progress: '처리중', completed: '완료' }
+const STATUS_LABEL = { pending: '접수', in_progress: '처리중', completed: '완료', canceled: '취소' }
 const STATUS_COLOR = {
   pending: 'bg-amber-500/10 text-amber-700 border-amber-500/20',
   in_progress: 'bg-primary/10 text-primary border-primary/20',
   completed: 'bg-emerald-500/10 text-emerald-700 border-emerald-500/20',
+  canceled: 'bg-muted text-muted-foreground border-border',
 }
 
 export default function RepairConfirmPage() {
@@ -33,12 +34,16 @@ export default function RepairConfirmPage() {
   const exportRef = useRef(null)
 
   const fetchRecords = useCallback(async () => {
-    const { data } = await supabase
-      .from('repair_requests')
-      .select('*, stores(name, code, region)')
-      .order('created_at', { ascending: false })
+    const res = await fetch('/api/repair-requests?limit=500&status=all', { cache: 'no-store' })
+    const payload = await res.json().catch(() => null)
+    if (!res.ok || payload?.success === false) {
+      setAllRecords([])
+      setRecords([])
+      setLoading(false)
+      return
+    }
 
-    const all = data || []
+    const all = payload?.data || []
     setAllRecords(all)
     setRecords(statusFilter === 'all' ? all : all.filter(r => r.status === statusFilter))
     setLoading(false)
@@ -96,8 +101,19 @@ export default function RepairConfirmPage() {
 
   async function updateStatus(id, newStatus) {
     setUpdating(id)
-    await supabase.from('repair_requests').update({ status: newStatus }).eq('id', id)
-    const updater = prev => prev.map(r => r.id === id ? { ...r, status: newStatus } : r)
+    const res = await fetch(`/api/repair-requests/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: newStatus }),
+    })
+    const payload = await res.json().catch(() => null)
+    if (!res.ok || payload?.success === false) {
+      alert(payload?.error?.message || '상태 변경에 실패했습니다.')
+      setUpdating(null)
+      return
+    }
+    const updated = payload?.data
+    const updater = prev => prev.map(r => r.id === id ? { ...r, ...(updated || {}), status: updated?.status || newStatus } : r)
     setAllRecords(updater)
     setRecords(updater)
     setUpdating(null)
@@ -105,10 +121,10 @@ export default function RepairConfirmPage() {
 
   const filtered = search.trim()
     ? records.filter(r =>
-        r.stores?.name?.includes(search) ||
-        r.stores?.code?.includes(search) ||
-        r.reporter_name?.includes(search) ||
-        r.symptom?.includes(search)
+        String(r.stores?.name || '').includes(search) ||
+        String(r.stores?.code || '').includes(search) ||
+        String(r.reporter_name || '').includes(search) ||
+        String(r.symptom || '').includes(search)
       )
     : records
 
@@ -117,6 +133,7 @@ export default function RepairConfirmPage() {
     pending: allRecords.filter(r => r.status === 'pending').length,
     in_progress: allRecords.filter(r => r.status === 'in_progress').length,
     completed: allRecords.filter(r => r.status === 'completed').length,
+    canceled: allRecords.filter(r => r.status === 'canceled').length,
   }
 
   return (
