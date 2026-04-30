@@ -7,6 +7,15 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Header, Footer } from '../../components/shared'
 
+function amountValue(value) {
+  const number = Number(String(value).replace(/[^0-9]/g, ''))
+  return Number.isFinite(number) ? number : 0
+}
+
+function formatAmount(value) {
+  return `${Number(value || 0).toLocaleString('ko-KR')}원`
+}
+
 export default function CashCollectionPage() {
   const [stores, setStores] = useState([])
   const [staff, setStaff] = useState([])
@@ -16,10 +25,14 @@ export default function CashCollectionPage() {
   const [selectedStaff, setSelectedStaff] = useState(null)
   const [workerName, setWorkerName] = useState('')
   const [collectionDate, setCollectionDate] = useState(() => new Date().toISOString().split('T')[0])
+  const [cashAmount, setCashAmount] = useState('')
+  const [cashReceiptAmount, setCashReceiptAmount] = useState('')
+  const [cardAmount, setCardAmount] = useState('')
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [recentRecords, setRecentRecords] = useState([])
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState('')
 
   // 이번 달 수거 대상 = 지난달
   const now = new Date()
@@ -27,10 +40,13 @@ export default function CashCollectionPage() {
   const targetMonthNum = now.getMonth() === 0 ? 12 : now.getMonth()
   const targetMonth = `${targetYear}-${String(targetMonthNum).padStart(2, '0')}`
   const targetLabel = `${targetYear}년 ${targetMonthNum}월`
+  const amountTotal = amountValue(cashAmount) + amountValue(cashReceiptAmount) + amountValue(cardAmount)
 
   const fetchStores = useCallback(async () => {
-    const { data } = await supabase.from('stores').select('*').order('region, name')
-    setStores(data || [])
+    const response = await fetch('/api/cash-collections/stores')
+    const payload = await response.json()
+    if (!response.ok) throw new Error(payload?.error?.message || '매장 목록을 불러오지 못했습니다.')
+    setStores(payload.data || [])
   }, [])
 
   const fetchStaff = useCallback(async () => {
@@ -39,19 +55,21 @@ export default function CashCollectionPage() {
   }, [])
 
   const fetchRecent = useCallback(async () => {
-    const { data } = await supabase
-      .from('cash_collections')
-      .select('*, stores(name, code, region)')
-      .eq('target_month', targetMonth)
-      .order('created_at', { ascending: false })
-      .limit(10)
-    setRecentRecords(data || [])
+    const response = await fetch(`/api/cash-collections?targetMonth=${targetMonth}&status=SUBMITTED&limit=10`)
+    const payload = await response.json()
+    if (!response.ok) throw new Error(payload?.error?.message || '최근 기록을 불러오지 못했습니다.')
+    setRecentRecords(payload.data || [])
   }, [targetMonth])
 
   useEffect(() => {
     async function init() {
       setLoading(true)
-      await Promise.all([fetchStores(), fetchStaff(), fetchRecent()])
+      setLoadError('')
+      try {
+        await Promise.all([fetchStores(), fetchStaff(), fetchRecent()])
+      } catch (error) {
+        setLoadError(error?.message || '데이터를 불러오지 못했습니다.')
+      }
       setLoading(false)
     }
     init()
@@ -62,36 +80,52 @@ export default function CashCollectionPage() {
     : []
 
   const filteredStaff = staffSearch.trim()
-    ? staff.filter(s => s.name.includes(staffSearch) || s.employee_id.includes(staffSearch))
+    ? staff.filter(s => s.name.includes(staffSearch) || String(s.employee_id || '').includes(staffSearch))
     : []
 
   async function handleSubmit() {
     const finalWorkerName = selectedStaff ? selectedStaff.name : workerName.trim()
-    if (!selectedStore || !finalWorkerName || !collectionDate) return
+    if (!selectedStore || !finalWorkerName || !collectionDate || amountTotal <= 0) return
     setSaving(true)
 
-    // 중복 체크
-    const { data: existing } = await supabase
-      .from('cash_collections')
-      .select('id')
-      .eq('store_id', selectedStore.id)
-      .eq('target_month', targetMonth)
-      .limit(1)
+    try {
+      const existingResponse = await fetch(`/api/cash-collections?storeCode=${encodeURIComponent(selectedStore.code)}&targetMonth=${targetMonth}&status=SUBMITTED&limit=1`)
+      const existingPayload = await existingResponse.json()
+      if (!existingResponse.ok) throw new Error(existingPayload?.error?.message || '중복 확인에 실패했습니다.')
 
-    if (existing && existing.length > 0) {
-      if (!confirm(`${selectedStore.name}은(는) 이미 ${targetLabel} 수거 기록이 있습니다. 덮어쓸까요?`)) {
-        setSaving(false)
-        return
+      if ((existingPayload.data || []).length > 0) {
+        if (!confirm(`${selectedStore.name}은(는) 이미 ${targetLabel} 수거 기록이 있습니다. 덮어쓸까요?`)) {
+          setSaving(false)
+          return
+        }
       }
-      await supabase.from('cash_collections').delete().eq('id', existing[0].id)
-    }
 
-    await supabase.from('cash_collections').insert({
-      store_id: selectedStore.id,
-      worker_name: finalWorkerName,
-      collection_date: collectionDate,
-      target_month: targetMonth,
-    })
+      const saveResponse = await fetch('/api/cash-collections', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          collectionDate,
+          targetMonth,
+          storeCode: selectedStore.code,
+          cashAmount: amountValue(cashAmount),
+          cashReceiptAmount: amountValue(cashReceiptAmount),
+          cardAmount: amountValue(cardAmount),
+          submitterName: finalWorkerName,
+          sourceSubmissionId: `direct-wiki:${selectedStore.code}:${targetMonth}`,
+          raw: {
+            source: 'direct-wiki-cash-collection',
+            store: selectedStore,
+            staff: selectedStaff,
+          },
+        }),
+      })
+      const savePayload = await saveResponse.json()
+      if (!saveResponse.ok) throw new Error(savePayload?.error?.message || '저장에 실패했습니다.')
+    } catch (error) {
+      alert(error?.message || '저장에 실패했습니다.')
+      setSaving(false)
+      return
+    }
 
     setSaving(false)
     setSaved(true)
@@ -101,6 +135,9 @@ export default function CashCollectionPage() {
     setStoreSearch('')
     setStaffSearch('')
     setCollectionDate(new Date().toISOString().split('T')[0])
+    setCashAmount('')
+    setCashReceiptAmount('')
+    setCardAmount('')
     fetchRecent()
 
     setTimeout(() => setSaved(false), 3000)
@@ -111,6 +148,22 @@ export default function CashCollectionPage() {
       <main className="min-h-screen bg-background">
         <Header title="발렉스 현금 수거 기록" showBack />
         <p className="text-[13px] text-muted-foreground text-center py-20">불러오는 중...</p>
+      </main>
+    )
+  }
+
+  if (loadError) {
+    return (
+      <main className="min-h-screen bg-background">
+        <Header title="발렉스 현금 수거 기록" showBack />
+        <div className="max-w-[480px] mx-auto px-5 py-10">
+          <Card className="rounded-2xl border-red-200 bg-red-50">
+            <CardContent className="p-5">
+              <p className="text-[14px] font-bold text-red-700">ERP 연동 오류</p>
+              <p className="text-[13px] text-red-600 mt-2">{loadError}</p>
+            </CardContent>
+          </Card>
+        </div>
       </main>
     )
   }
@@ -241,6 +294,18 @@ export default function CashCollectionPage() {
               )}
             </div>
 
+            {!selectedStaff && (
+              <div>
+                <label className="text-[13px] font-bold text-foreground mb-2 block">근무자 직접 입력</label>
+                <Input
+                  value={workerName}
+                  onChange={e => setWorkerName(e.target.value)}
+                  placeholder="검색이 안 될 때 이름 직접 입력"
+                  className="h-11 text-[16px] rounded-xl"
+                />
+              </div>
+            )}
+
             {/* 수거일 */}
             <div>
               <label className="text-[13px] font-bold text-foreground mb-2 block">수거일</label>
@@ -252,10 +317,47 @@ export default function CashCollectionPage() {
               />
             </div>
 
+            <div>
+              <label className="text-[13px] font-bold text-foreground mb-2 block">수거 금액</label>
+              <div className="grid grid-cols-3 gap-2">
+                <Input
+                  type="number"
+                  inputMode="numeric"
+                  min="0"
+                  value={cashAmount}
+                  onChange={e => setCashAmount(e.target.value)}
+                  placeholder="현금"
+                  className="h-11 text-[15px] rounded-xl"
+                />
+                <Input
+                  type="number"
+                  inputMode="numeric"
+                  min="0"
+                  value={cashReceiptAmount}
+                  onChange={e => setCashReceiptAmount(e.target.value)}
+                  placeholder="현금영수증"
+                  className="h-11 text-[15px] rounded-xl"
+                />
+                <Input
+                  type="number"
+                  inputMode="numeric"
+                  min="0"
+                  value={cardAmount}
+                  onChange={e => setCardAmount(e.target.value)}
+                  placeholder="카드"
+                  className="h-11 text-[15px] rounded-xl"
+                />
+              </div>
+              <div className="flex items-center justify-between mt-2 text-[12px]">
+                <span className="text-muted-foreground">합계</span>
+                <span className="font-bold text-foreground">{formatAmount(amountTotal)}</span>
+              </div>
+            </div>
+
             {/* 저장 버튼 */}
             <button
               onClick={handleSubmit}
-              disabled={saving || !selectedStore || !selectedStaff || !collectionDate}
+              disabled={saving || !selectedStore || (!selectedStaff && !workerName.trim()) || !collectionDate || amountTotal <= 0}
               className="w-full h-12 rounded-2xl bg-primary text-white font-bold text-[15px] hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {saving ? '저장 중...' : '수거 기록 저장'}
@@ -295,6 +397,9 @@ export default function CashCollectionPage() {
                         <span className="text-[12px] text-muted-foreground">|</span>
                         <span className="text-[12px] text-muted-foreground font-mono">{r.collection_date}</span>
                       </div>
+                      <p className="text-[12px] font-semibold text-foreground mt-1">
+                        {formatAmount(r.totalAmount)}
+                      </p>
                     </div>
                   </CardContent>
                 </Card>

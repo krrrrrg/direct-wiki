@@ -14,6 +14,11 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+
+function formatAmount(value) {
+  return `${Number(value || 0).toLocaleString('ko-KR')}원`
+}
+
 export default function AdminPage() {
   const [tab, setTab] = useState('check') // 'check' | 'login' | 'cash' | 'views' | 'search' | 'notice' | 'size' | 'sitemap'
 
@@ -381,23 +386,28 @@ function CashCollectionTab() {
   const fetchData = useCallback(async () => {
     setLoading(true)
     const [storeRes, collRes] = await Promise.all([
-      supabase.from('stores').select('*').order('region, name'),
-      supabase.from('cash_collections')
-        .select('*, stores(name, code, region)')
-        .eq('target_month', selectedMonth)
-        .order('created_at', { ascending: false }),
+      fetch('/api/cash-collections/stores'),
+      fetch(`/api/cash-collections?targetMonth=${selectedMonth}&status=SUBMITTED&limit=500`),
     ])
-    setStores(storeRes.data || [])
-    setCollections(collRes.data || [])
+    const [storePayload, collPayload] = await Promise.all([storeRes.json(), collRes.json()])
+    if (!storeRes.ok || !collRes.ok) {
+      alert(storePayload?.error?.message || collPayload?.error?.message || 'ERP 현금수거 데이터를 불러오지 못했습니다.')
+      setStores([])
+      setCollections([])
+      setLoading(false)
+      return
+    }
+    setStores(storePayload.data || [])
+    setCollections(collPayload.data || [])
     setLoading(false)
   }, [selectedMonth])
 
   useEffect(() => { fetchData() }, [fetchData])
 
   async function deleteRecord(id) {
-    if (!confirm('이 수거 기록을 삭제할까요?')) return
-    const { error } = await supabase.from('cash_collections').delete().eq('id', id)
-    if (error) {
+    if (!confirm('이 수거 기록을 취소할까요?')) return
+    const response = await fetch(`/api/cash-collections/${id}`, { method: 'DELETE' })
+    if (!response.ok) {
       alert('삭제에 실패했습니다.')
       return
     }
@@ -416,9 +426,9 @@ function CashCollectionTab() {
   })
 
   const totalStores = stores.filter(s => regionFilter === '전체' || s.region === regionFilter).length
-  const doneCount = filteredStores.filter(s => collectedStoreIds.has(s.id)).length
-  const missingCount = totalStores - stores.filter(s => (regionFilter === '전체' || s.region === regionFilter) && collectedStoreIds.has(s.id)).length
-  const progress = totalStores > 0 ? Math.round((stores.filter(s => (regionFilter === '전체' || s.region === regionFilter) && collectedStoreIds.has(s.id)).length / totalStores) * 100) : 0
+  const doneCount = stores.filter(s => (regionFilter === '전체' || s.region === regionFilter) && collectedStoreIds.has(s.id)).length
+  const missingCount = totalStores - doneCount
+  const progress = totalStores > 0 ? Math.round((doneCount / totalStores) * 100) : 0
 
   if (loading) return <p className="text-[13px] text-muted-foreground text-center py-10">불러오는 중...</p>
 
@@ -450,7 +460,7 @@ function CashCollectionTab() {
           <div className="flex items-center justify-between mb-3">
             <p className="text-[15px] font-bold">수거 완료</p>
             <span className="text-[14px] font-bold text-primary">
-              {stores.filter(s => (regionFilter === '전체' || s.region === regionFilter) && collectedStoreIds.has(s.id)).length}/{totalStores}
+              {doneCount}/{totalStores}
             </span>
           </div>
           <div className="w-full h-2.5 bg-secondary rounded-full overflow-hidden">
@@ -532,9 +542,14 @@ function CashCollectionTab() {
                           {store.name}
                         </p>
                         {isDone && record && (
-                          <p className="text-[12px] text-muted-foreground mt-0.5">
-                            {record.worker_name} · {record.collection_date}
-                          </p>
+                          <div className="mt-0.5">
+                            <p className="text-[12px] text-muted-foreground">
+                              {record.worker_name} · {record.collection_date}
+                            </p>
+                            <p className="text-[12px] font-semibold text-foreground">
+                              {formatAmount(record.totalAmount)}
+                            </p>
+                          </div>
                         )}
                       </div>
                       <span className="text-[11px] text-muted-foreground font-mono shrink-0">{store.code}</span>
