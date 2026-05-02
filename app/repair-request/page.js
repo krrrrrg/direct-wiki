@@ -36,10 +36,10 @@ export default function RepairRequestPage() {
   }, [])
 
   const fetchRecent = useCallback(async () => {
-    const res = await fetch('/api/repair-requests?limit=10&status=all', { cache: 'no-store' })
+    const res = await fetch('/api/repair-requests?limit=30&status=all', { cache: 'no-store' })
     const payload = await res.json().catch(() => null)
     if (!res.ok || payload?.success === false) throw new Error(payload?.error?.message || '최근 수리접수 조회 실패')
-    setRecentRecords(payload?.data || [])
+    setRecentRecords((payload?.data || []).filter(row => row.status !== 'canceled').slice(0, 10))
   }, [])
 
   useEffect(() => {
