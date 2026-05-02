@@ -101,22 +101,23 @@ export default function RepairConfirmPage() {
 
   async function updateStatus(id, newStatus) {
     setUpdating(id)
-    const res = await fetch(`/api/repair-requests/${id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status: newStatus }),
-    })
-    const payload = await res.json().catch(() => null)
-    if (!res.ok || payload?.success === false) {
-      alert(payload?.error?.message || '상태 변경에 실패했습니다.')
+    try {
+      const res = await fetch(`/api/repair-requests/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus }),
+      })
+      const payload = await res.json().catch(() => null)
+      if (!res.ok || payload?.success === false) {
+        throw new Error(payload?.error?.message || '상태 변경에 실패했습니다.')
+      }
+      await fetchRecords()
+      setExpandedId(id)
+    } catch (error) {
+      alert(error?.message || '상태 변경에 실패했습니다.')
+    } finally {
       setUpdating(null)
-      return
     }
-    const updated = payload?.data
-    const updater = prev => prev.map(r => r.id === id ? { ...r, ...(updated || {}), status: updated?.status || newStatus } : r)
-    setAllRecords(updater)
-    setRecords(updater)
-    setUpdating(null)
   }
 
   const filtered = search.trim()
