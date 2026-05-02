@@ -70,12 +70,28 @@ export default function RepairRequestPage() {
     setStoreSearch(value)
   }
 
+  function matchesStoreSearch(store, query) {
+    const haystacks = [
+      normalizeSearchText(store.name),
+      normalizeSearchText(store.code),
+      normalizeSearchText(store.region),
+    ].filter(Boolean)
+
+    if (haystacks.some(value => value.includes(query))) return true
+
+    const directStoreQuery = query.endsWith('직영점')
+      ? query.replace(/직영점$/, '')
+      : ''
+    if (directStoreQuery.length >= 2) {
+      return haystacks.some(value => value.includes('직영점') && value.includes(directStoreQuery))
+    }
+
+    return false
+  }
+
   const storeQuery = normalizeSearchText(storeSearch)
   const filteredStores = storeSearch.trim()
-    ? stores.filter(s =>
-        normalizeSearchText(s.name).includes(storeQuery) ||
-        normalizeSearchText(s.code).includes(storeQuery)
-      )
+    ? stores.filter(s => matchesStoreSearch(s, storeQuery))
     : []
 
   const filteredStaff = staffSearch.trim()
