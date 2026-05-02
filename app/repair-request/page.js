@@ -56,10 +56,25 @@ export default function RepairRequestPage() {
     init()
   }, [fetchStores, fetchStaff, fetchRecent])
 
+  function normalizeSearchText(value) {
+    return String(value || '').replace(/\s+/g, '').toLowerCase()
+  }
+
+  function selectStore(store) {
+    setSelectedStore(store)
+    setStoreSearch(store.name || store.code || '')
+  }
+
+  function handleStoreSearchChange(value) {
+    setSelectedStore(null)
+    setStoreSearch(value)
+  }
+
+  const storeQuery = normalizeSearchText(storeSearch)
   const filteredStores = storeSearch.trim()
     ? stores.filter(s =>
-        String(s.name || '').includes(storeSearch) ||
-        String(s.code || '').includes(storeSearch)
+        normalizeSearchText(s.name).includes(storeQuery) ||
+        normalizeSearchText(s.code).includes(storeQuery)
       )
     : []
 
@@ -106,81 +121,88 @@ export default function RepairRequestPage() {
   }
 
   async function handleSubmit() {
-    if (!selectedStore || !selectedStaff || !symptom.trim()) return
-    setSaving(true)
-
-    // 사진 업로드
-    const uploadedUrls = []
-    let photoFailed = 0
-    for (const file of photos) {
-      const ext = file.name.split('.').pop()
-      const path = `${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`
-      const { error } = await supabase.storage
-        .from('repair-photos')
-        .upload(path, file)
-      if (!error) {
-        const { data: urlData } = supabase.storage
-          .from('repair-photos')
-          .getPublicUrl(path)
-        uploadedUrls.push(urlData.publicUrl)
-      } else {
-        photoFailed++
-      }
-    }
-    if (photoFailed > 0) {
-      alert(`사진 ${photoFailed}장 업로드에 실패했습니다. 나머지는 정상 첨부됩니다.`)
-    }
-
-    // 동영상 업로드
-    let videoUrl = null
-    if (video) {
-      const ext = video.name.split('.').pop()
-      const path = `video_${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`
-      const { error } = await supabase.storage
-        .from('repair-photos')
-        .upload(path, video)
-      if (!error) {
-        const { data: urlData } = supabase.storage
-          .from('repair-photos')
-          .getPublicUrl(path)
-        videoUrl = urlData.publicUrl
-      }
-    }
-
-    const submitRes = await fetch('/api/repair-requests', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        storeCode: selectedStore.code,
-        reporterName: selectedStaff.name,
-        symptom: symptom.trim(),
-        photoUrls: uploadedUrls,
-        videoUrl,
-        status: 'pending',
-      }),
-    })
-    const submitPayload = await submitRes.json().catch(() => null)
-
-    if (!submitRes.ok || submitPayload?.success === false) {
-      setSaving(false)
-      alert(submitPayload?.error?.message || '접수에 실패했습니다. 다시 시도해주세요.')
+    if (!selectedStore?.code) {
+      alert('검색 결과에서 매장을 선택해주세요.')
       return
     }
+    if (!selectedStaff || !symptom.trim()) return
+    setSaving(true)
 
-    setSaving(false)
-    setSaved(true)
-    setSelectedStore(null)
-    setSelectedStaff(null)
-    setSymptom('')
-    setPhotos([])
-    previews.forEach(p => URL.revokeObjectURL(p))
-    setPreviews([])
-    removeVideo()
-    setStoreSearch('')
-    setStaffSearch('')
-    fetchRecent()
+    try {
+      // 사진 업로드
+      const uploadedUrls = []
+      let photoFailed = 0
+      for (const file of photos) {
+        const ext = file.name.split('.').pop()
+        const path = `${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`
+        const { error } = await supabase.storage
+          .from('repair-photos')
+          .upload(path, file)
+        if (!error) {
+          const { data: urlData } = supabase.storage
+            .from('repair-photos')
+            .getPublicUrl(path)
+          uploadedUrls.push(urlData.publicUrl)
+        } else {
+          photoFailed++
+        }
+      }
+      if (photoFailed > 0) {
+        alert(`사진 ${photoFailed}장 업로드에 실패했습니다. 나머지는 정상 첨부됩니다.`)
+      }
 
-    setTimeout(() => setSaved(false), 3000)
+      // 동영상 업로드
+      let videoUrl = null
+      if (video) {
+        const ext = video.name.split('.').pop()
+        const path = `video_${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`
+        const { error } = await supabase.storage
+          .from('repair-photos')
+          .upload(path, video)
+        if (!error) {
+          const { data: urlData } = supabase.storage
+            .from('repair-photos')
+            .getPublicUrl(path)
+          videoUrl = urlData.publicUrl
+        }
+      }
+
+      const submitRes = await fetch('/api/repair-requests', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          storeCode: selectedStore.code,
+          reporterName: selectedStaff.name,
+          symptom: symptom.trim(),
+          photoUrls: uploadedUrls,
+          videoUrl,
+          status: 'pending',
+        }),
+      })
+      const submitPayload = await submitRes.json().catch(() => null)
+
+      if (!submitRes.ok || submitPayload?.success === false) {
+        throw new Error(submitPayload?.error?.message || '접수에 실패했습니다. 다시 시도해주세요.')
+      }
+
+      setSaved(true)
+      setSelectedStore(null)
+      setSelectedStaff(null)
+      setSymptom('')
+      setPhotos([])
+      previews.forEach(p => URL.revokeObjectURL(p))
+      setPreviews([])
+      removeVideo()
+      setStoreSearch('')
+      setStaffSearch('')
+      fetchRecent()
+
+      setTimeout(() => setSaved(false), 3000)
+    } catch (error) {
+      alert(error?.message || '접수에 실패했습니다. 다시 시도해주세요.')
+    } finally {
+      setSaving(false)
+    }
   }
 
   const statusLabel = { pending: '접수', in_progress: '처리중', completed: '완료', canceled: '취소' }
@@ -243,14 +265,12 @@ export default function RepairRequestPage() {
                 <>
                   <Input
                     value={storeSearch}
-                    onChange={e => setStoreSearch(e.target.value)}
-                    onBlur={() => {
-                      setTimeout(() => {
-                        if (filteredStores.length > 0 && !selectedStore) {
-                          setSelectedStore(filteredStores[0])
-                          setStoreSearch(filteredStores[0].name)
-                        }
-                      }, 150)
+                    onChange={e => handleStoreSearchChange(e.target.value)}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter' && filteredStores.length === 1) {
+                        e.preventDefault()
+                        selectStore(filteredStores[0])
+                      }
                     }}
                     placeholder="매장명 또는 매장코드 검색"
                     className="h-11 text-[16px] rounded-xl"
@@ -260,7 +280,7 @@ export default function RepairRequestPage() {
                       {filteredStores.map(s => (
                         <button
                           key={s.id}
-                          onClick={() => { setSelectedStore(s); setStoreSearch(s.name) }}
+                          onClick={() => selectStore(s)}
                           className="w-full text-left px-4 py-2.5 hover:bg-secondary/50 transition-colors border-b border-border/20 last:border-0"
                         >
                           <p className="text-[14px] font-medium">{s.name}</p>
